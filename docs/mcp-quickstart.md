@@ -101,7 +101,7 @@ For development, you can disable OAuth by modifying the middleware configuration
 
 ## 📖 Documentation
 
-- [MCP Server Guide](mcp-server.md) - Complete user documentation
+- [MCP Server Guide](mcp-integration.md) - Complete user documentation
 - [Implementation Details](mcp-implementation.md) - Technical details
 - Configuration example in root: `config.mcp.example.yml`
 
@@ -131,7 +131,7 @@ talk2metadata-mcp sse --port 8011
 
 ## 🎯 Next Steps
 
-1. Read the [full documentation](mcp-server.md)
+1. Read the [full documentation](mcp-integration.md)
 2. Explore the tools with MCP Inspector
 3. Integrate with Claude or ChatGPT
 4. Configure OAuth for production use
