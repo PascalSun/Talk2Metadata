@@ -8,6 +8,7 @@ import click
 
 from talk2metadata.connectors import ConnectorFactory
 from talk2metadata.core.schema import SchemaDetector
+from talk2metadata.core.schema_viz import generate_html_visualization, validate_schema
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 
@@ -41,8 +42,34 @@ logger = get_logger(__name__)
     type=click.Path(),
     help="Output directory for metadata (default: data/metadata)",
 )
+@click.option(
+    "--visualize",
+    "-v",
+    is_flag=True,
+    help="Generate HTML visualization of schema after detection",
+)
+@click.option(
+    "--validate",
+    is_flag=True,
+    help="Validate schema and show errors/warnings before saving",
+)
+@click.option(
+    "--skip-validation",
+    is_flag=True,
+    help="Skip schema validation (use with caution)",
+)
 @click.pass_context
-def ingest_cmd(ctx, source_type, source_path, target_table, schema_file, output_dir):
+def ingest_cmd(
+    ctx,
+    source_type,
+    source_path,
+    target_table,
+    schema_file,
+    output_dir,
+    visualize,
+    validate,
+    skip_validation,
+):
     """Ingest data from CSV files or database.
 
     SOURCE_TYPE: csv, database, or db
@@ -132,6 +159,34 @@ def ingest_cmd(ctx, source_type, source_path, target_table, schema_file, output_
         click.echo(f"❌ Schema detection failed: {e}", err=True)
         raise click.Abort()
 
+    # 4.5. Validate schema (if requested or by default)
+    if validate or not skip_validation:
+        click.echo("\n🔍 Validating schema...")
+        validation_result = validate_schema(metadata)
+
+        if validation_result["errors"]:
+            click.echo("\n❌ Schema validation found errors:")
+            for error in validation_result["errors"]:
+                click.echo(f"   - {error}", err=True)
+            click.echo(
+                "\n⚠️  Schema has errors. Please review and fix before indexing.",
+                err=True,
+            )
+            click.echo(
+                "   Use 'talk2metadata schema --edit' to modify the schema file.",
+                err=True,
+            )
+            if not click.confirm("\n   Continue anyway?", default=False):
+                raise click.Abort()
+
+        if validation_result["warnings"]:
+            click.echo("\n⚠️  Schema validation warnings:")
+            for warning in validation_result["warnings"]:
+                click.echo(f"   - {warning}")
+
+        if not validation_result["errors"] and not validation_result["warnings"]:
+            click.echo("✓ Schema validation passed!")
+
     # 5. Save metadata
     if output_dir:
         metadata_dir = Path(output_dir)
@@ -141,13 +196,25 @@ def ingest_cmd(ctx, source_type, source_path, target_table, schema_file, output_
     metadata_dir.mkdir(parents=True, exist_ok=True)
     metadata_path = metadata_dir / "schema.json"
 
-    click.echo(f"💾 Saving metadata to {metadata_path}")
+    click.echo(f"\n💾 Saving metadata to {metadata_path}")
     try:
         metadata.save(metadata_path)
         click.echo(f"✓ Metadata saved successfully")
     except Exception as e:
         click.echo(f"❌ Failed to save metadata: {e}", err=True)
         raise click.Abort()
+
+    # 5.5. Generate visualization if requested
+    if visualize:
+        viz_path = metadata_dir / "schema_visualization.html"
+        click.echo(f"\n🎨 Generating schema visualization...")
+        try:
+            generate_html_visualization(metadata, viz_path)
+            click.echo(f"✓ Visualization saved to {viz_path}")
+            click.echo(f"   Open in browser: file://{viz_path.absolute()}")
+        except Exception as e:
+            click.echo(f"⚠️  Failed to generate visualization: {e}")
+            # Don't abort, visualization is optional
 
     # 6. Save raw tables (for indexing)
     processed_dir = Path(config.get("data.processed_dir", "./data/processed"))
@@ -166,4 +233,8 @@ def ingest_cmd(ctx, source_type, source_path, target_table, schema_file, output_
         raise click.Abort()
 
     click.echo("\n✅ Ingestion complete!")
-    click.echo(f"\nNext step: Run 'talk2metadata index' to build search index")
+    click.echo(f"\nNext steps:")
+    click.echo(f"   1. Review schema: talk2metadata schema --validate")
+    if not visualize:
+        click.echo(f"   2. Visualize schema: talk2metadata schema --visualize")
+    click.echo(f"   3. Build index: talk2metadata index")

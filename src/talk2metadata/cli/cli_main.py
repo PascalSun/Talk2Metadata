@@ -9,7 +9,7 @@ from talk2metadata.utils.config import load_config
 from talk2metadata.utils.logging import setup_logging
 
 # Import commands
-from talk2metadata.cli.commands import index, ingest, search, serve
+from talk2metadata.cli.commands import index, ingest, schema, search
 
 
 @click.group()
@@ -39,9 +39,6 @@ def cli(ctx, config, log_level):
 
         # Search for records
         talk2metadata search "customers in healthcare industry"
-
-        # Start API server
-        talk2metadata serve
     """
     ctx.ensure_object(dict)
 
@@ -56,8 +53,8 @@ def cli(ctx, config, log_level):
 # Register commands
 cli.add_command(ingest.ingest_cmd)
 cli.add_command(index.index_cmd)
+cli.add_command(schema.schema_cmd)
 cli.add_command(search.search_cmd)
-cli.add_command(serve.serve_cmd)
 
 
 def main():

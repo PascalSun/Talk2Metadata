@@ -144,32 +144,6 @@ Data:
 ...
 ```
 
-## Step 6: Start API Server (Optional)
-
-For programmatic access, start the REST API:
-
-```bash
-uv run talk2metadata serve
-```
-
-Then access the API:
-
-```bash
-# Search via API
-curl -X POST "http://localhost:8000/api/v1/search" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "healthcare customers", "top_k": 5}'
-
-# Get schema info
-curl "http://localhost:8000/api/v1/schema"
-
-# Health check
-curl "http://localhost:8000/health"
-
-# Interactive docs
-open http://localhost:8000/docs
-```
-
 ## Using Python API
 
 You can also use Talk2Metadata programmatically:
@@ -195,6 +169,6 @@ for result in results:
 
 ## Next Steps
 
-- [API Server Guide](../user-guide/api-server.md) - Running the REST API server
-- [REST API Reference](../api-reference/rest-api.md) - Complete API documentation
+- [MCP Quick Start Guide](../mcp-quickstart.md) - Running the MCP server for AI integration
+- [MCP Integration Guide](../mcp-integration.md) - Complete MCP documentation
 - Check `examples/` directory for more Python API usage examples

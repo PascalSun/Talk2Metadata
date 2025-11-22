@@ -62,13 +62,6 @@ Issues = "https://github.com/yourusername/talk2metadata/issues"
 Changelog = "https://github.com/yourusername/talk2metadata/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-# Full installation with API server
-full = [
-    "fastapi>=0.100.0",
-    "uvicorn>=0.23.0",
-    "rank-bm25>=0.2.2",  # Hybrid search
-]
-
 # Agent support (optional)
 agent = [
     "openai>=1.0",
@@ -82,6 +75,7 @@ mcp = [
     "httpx>=0.27.0",
     "pyjwt>=2.8.0",
     "uvicorn>=0.23.0",
+    "rank-bm25>=0.2.2",  # Hybrid search support
 ]
 
 # Development

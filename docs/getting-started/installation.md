@@ -34,26 +34,26 @@ uv run talk2metadata --help
 # Install from source
 pip install -e .
 
-# Or with all features
-pip install -e ".[full,dev]"
+# Or with MCP server support
+pip install -e ".[mcp,dev]"
 ```
 
 ## Optional Dependencies
 
-### Full Installation (API Server)
+### MCP Server Installation
 
-Includes FastAPI, Uvicorn, and hybrid search support:
+Includes MCP server support for AI agent integration:
 
 ```bash
-uv sync --group full
+uv sync --group mcp
 # or
-pip install -e ".[full]"
+pip install -e ".[mcp]"
 ```
 
 Features:
-- FastAPI REST API server
-- BM25 hybrid search
-- API documentation (Swagger/ReDoc)
+- MCP server with OAuth 2.0 authentication
+- BM25 hybrid search support
+- Tools, resources, and prompts for AI agents
 
 ### Development Installation
 
@@ -124,4 +124,4 @@ See `config.example.yml` for all available options.
 ## Next Steps
 
 - [Quick Start Tutorial](quickstart.md)
-- [API Server Guide](../user-guide/api-server.md)
+- [MCP Quick Start Guide](../mcp-quickstart.md)

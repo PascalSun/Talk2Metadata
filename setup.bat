@@ -1,25 +1,18 @@
 @echo off
 REM Setup script for Windows
-REM Usage: setup.bat [--mcp] [--full]
+REM Usage: setup.bat [--mcp]
 REM Options:
 REM   --mcp   Install with MCP server support
-REM   --full  Install all features (API server, MCP, hybrid search)
 
 setlocal enabledelayedexpansion
 
 SET INSTALL_MCP=
-SET INSTALL_FULL=
 
 REM Parse arguments
 :parse_args
 IF "%~1"=="" GOTO args_done
 IF /I "%~1"=="--mcp" (
     SET INSTALL_MCP=true
-    SHIFT
-    GOTO parse_args
-)
-IF /I "%~1"=="--full" (
-    SET INSTALL_FULL=true
     SHIFT
     GOTO parse_args
 )
@@ -34,13 +27,11 @@ echo Usage: setup.bat [OPTIONS]
 echo.
 echo Options:
 echo   --mcp     Install with MCP server support
-echo   --full    Install all features (API, MCP, hybrid search)
 echo   --help    Show this help message
 echo.
 echo Examples:
 echo   setup.bat              # Basic installation
 echo   setup.bat --mcp        # With MCP server
-echo   setup.bat --full       # Everything
 exit /b 0
 
 :args_done
@@ -92,21 +83,18 @@ REM Step 2: Determine installation extras
 echo ==^> Step 2: Determining installation options...
 SET "EXTRAS=dev"
 
-IF "!INSTALL_FULL!"=="true" (
-    SET "EXTRAS=full,mcp,agent,dev"
-    echo [INFO] Installing with all features
-) ELSE IF "!INSTALL_MCP!"=="true" (
-    SET "EXTRAS=mcp,full,dev"
+IF "!INSTALL_MCP!"=="true" (
+    SET "EXTRAS=mcp,dev"
     echo [INFO] Installing with MCP server support
 ) ELSE (
     REM Ask user
     set /p "MCP_CHOICE=Install with MCP server support? (Y/n): "
     IF /I "!MCP_CHOICE!"=="" SET "MCP_CHOICE=Y"
     IF /I "!MCP_CHOICE!"=="Y" (
-        SET "EXTRAS=mcp,full,dev"
+        SET "EXTRAS=mcp,dev"
         echo [INFO] Installing with MCP server support
     ) ELSE (
-        SET "EXTRAS=full,dev"
+        SET "EXTRAS=dev"
         echo [INFO] Installing basic version
     )
 )

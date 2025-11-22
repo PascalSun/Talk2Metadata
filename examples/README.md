@@ -60,25 +60,6 @@ uv run python python_api_example.py
 - Filtering and processing results
 - Getting retriever statistics
 
-### 3. REST API Client (`api_client_example.py`)
-
-Demonstrates interaction with the REST API:
-
-```bash
-# Terminal 1: Start server
-uv run talk2metadata serve
-
-# Terminal 2: Run client examples
-cd examples
-uv run python api_client_example.py
-```
-
-**What you'll learn:**
-- How to create a simple API client
-- All available API endpoints
-- Error handling
-- Processing API responses
-
 ## Step-by-Step Tutorial
 
 ### Step 1: Ingest Sample Data
@@ -138,21 +119,6 @@ results = retriever.search("healthcare customers", top_k=5)
 # Process results
 for result in results:
     print(f"Rank {result.rank}: {result.data}")
-```
-
-### Step 5: Start API Server
-
-```bash
-# Start server
-uv run talk2metadata serve
-
-# In another terminal, test it
-curl -X POST "http://localhost:8000/api/v1/search" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "healthcare customers", "top_k": 5}'
-
-# Or visit interactive docs
-open http://localhost:8000/docs
 ```
 
 ## Sample Queries to Try
@@ -222,15 +188,8 @@ If the embedding model fails to download:
 uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 ```
 
-### API Server Connection Error
-```
-Error: Could not connect to API server
-```
-**Solution:** Start the server with `uv run talk2metadata serve`
-
 ## Next Steps
 
-- Read the [User Guide](../docs/user-guide/)
-- Explore [API Reference](../docs/api-reference/)
-- Check [Architecture docs](../docs/architecture/)
+- Read the [MCP Quick Start Guide](../docs/mcp-quickstart.md)
+- Explore [MCP Integration Guide](../docs/mcp-integration.md)
 - Try with your own data!

@@ -1,9 +1,8 @@
 #!/bin/bash
 # Setup script for Unix-based systems (macOS, Linux, WSL)
-# Usage: ./setup.sh [--mcp] [--full]
+# Usage: ./setup.sh [--mcp]
 # Options:
 #   --mcp   Install with MCP server support
-#   --full  Install all features (API server, MCP, hybrid search)
 
 set -e  # Exit on error
 
@@ -32,28 +31,22 @@ echo_step() {
 
 # Parse arguments
 INSTALL_MCP=""
-INSTALL_FULL=""
 
 for arg in "$@"; do
     case $arg in
         --mcp)
             INSTALL_MCP="true"
             ;;
-        --full)
-            INSTALL_FULL="true"
-            ;;
         --help|-h)
             echo "Usage: ./setup.sh [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --mcp     Install with MCP server support"
-            echo "  --full    Install all features (API, MCP, hybrid search)"
             echo "  --help    Show this help message"
             echo ""
             echo "Examples:"
             echo "  ./setup.sh              # Basic installation"
             echo "  ./setup.sh --mcp        # With MCP server"
-            echo "  ./setup.sh --full       # Everything"
             exit 0
             ;;
         *)
@@ -143,21 +136,18 @@ setup_config() {
 determine_extras() {
     local extras="dev"
 
-    if [ "$INSTALL_FULL" = "true" ]; then
-        extras="full,mcp,agent,dev"
-        echo_info "Installing with all features" >&2
-    elif [ "$INSTALL_MCP" = "true" ]; then
-        extras="mcp,full,dev"
+    if [ "$INSTALL_MCP" = "true" ]; then
+        extras="mcp,dev"
         echo_info "Installing with MCP server support" >&2
     else
         # Ask user if they want MCP
         read -p "Install with MCP server support? (Y/n): " -n 1 -r </dev/tty
         echo >&2
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            extras="mcp,full,dev"
+            extras="mcp,dev"
             echo_info "Installing with MCP server support" >&2
         else
-            extras="full,dev"
+            extras="dev"
             echo_info "Installing basic version" >&2
         fi
     fi

@@ -33,7 +33,7 @@ def __getattr__(name):
         except ImportError as e:
             raise ImportError(
                 f"HybridRetriever requires additional dependencies. "
-                f"Install with: pip install talk2metadata[full]"
+                f"Install with: pip install talk2metadata[mcp]"
             ) from e
     elif name == "BM25Index":
         try:
@@ -42,7 +42,7 @@ def __getattr__(name):
         except ImportError as e:
             raise ImportError(
                 f"BM25Index requires additional dependencies. "
-                f"Install with: pip install talk2metadata[full]"
+                f"Install with: pip install talk2metadata[mcp]"
             ) from e
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

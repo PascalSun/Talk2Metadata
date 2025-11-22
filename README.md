@@ -15,6 +15,8 @@ Talk2Metadata enables semantic search over relational databases. It automaticall
 - ⚡ **Hybrid Search**: Combines BM25 + semantic search for better results
 - 🔗 **Auto FK Detection**: Infers foreign key relationships from data
 - 📊 **Multi-Table Support**: Joins related tables for rich context
+- 🎨 **Schema Visualization**: Interactive HTML visualization of FK relationships
+- ✅ **Schema Validation**: Review and validate schemas before indexing
 - 🚀 **Production-Ready**: Clean architecture, tested, documented
 - 🎯 **Lightweight**: No GPU required, runs on CPU
 - 🔌 **Flexible**: Supports CSV files and SQL databases
@@ -69,7 +71,6 @@ cd Talk2Metadata
 # Run setup script - it will guide you through options
 ./setup.sh          # Basic installation
 ./setup.sh --mcp    # With MCP server support
-./setup.sh --full   # Install everything
 
 # Activate environment
 source .venv/bin/activate
@@ -83,7 +84,6 @@ cd Talk2Metadata
 # Run setup script
 setup.bat          # Basic installation
 setup.bat --mcp    # With MCP server support
-setup.bat --full   # Install everything
 
 # Activate environment
 .venv\Scripts\activate.bat
@@ -109,9 +109,7 @@ uv sync
 pip install -e .
 
 # With specific features
-pip install -e ".[full]"      # API server + hybrid search
 pip install -e ".[mcp]"        # MCP server
-pip install -e ".[full,mcp]"   # Everything
 ```
 
 ## Usage Examples
@@ -124,6 +122,10 @@ talk2metadata ingest csv ./data/raw --target orders
 
 # Ingest from database
 talk2metadata ingest database "postgresql://localhost/mydb" --target orders
+
+# Review and validate schema (before indexing)
+talk2metadata schema --validate
+talk2metadata schema --visualize  # Generate HTML visualization
 
 # Build index (semantic only)
 talk2metadata index
@@ -140,9 +142,6 @@ talk2metadata search "customers in healthcare" --hybrid
 # Advanced search options
 talk2metadata search "pending orders" --top-k 10 --format json
 talk2metadata search "high value orders" --hybrid --show-score
-
-# Start API server
-talk2metadata serve
 ```
 
 ### Python API
@@ -161,31 +160,6 @@ results = retriever.search("healthcare customers", top_k=5)
 
 for result in results:
     print(f"Rank {result.rank}: {result.data}")
-```
-
-### REST API
-
-```bash
-# Start server
-uv run talk2metadata serve
-
-# Semantic search
-curl -X POST "http://localhost:8000/api/v1/search" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "healthcare customers", "top_k": 5}'
-
-# Hybrid search (BM25 + semantic)
-curl -X POST "http://localhost:8000/api/v1/search" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "healthcare customers", "top_k": 5, "hybrid": true}'
-
-# Hybrid search with custom fusion
-curl -X POST "http://localhost:8000/api/v1/search" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "healthcare customers", "top_k": 5, "hybrid": true, "fusion_method": "weighted_sum", "alpha": 0.7}'
-
-# Interactive docs
-open http://localhost:8000/docs
 ```
 
 ## Architecture
@@ -230,7 +204,7 @@ Talk2Metadata/
 │   ├── core/              # Schema, indexing, retrieval
 │   ├── connectors/        # CSV and database connectors
 │   ├── cli/               # Command-line interface
-│   ├── api/               # FastAPI server
+│   ├── mcp/               # MCP server
 │   └── utils/             # Config, logging
 ├── data/                  # Sample data
 │   ├── raw/              # CSV files
@@ -368,5 +342,5 @@ Architecture inspired by:
 Built with:
 - [sentence-transformers](https://www.sbert.net/) - Embeddings
 - [FAISS](https://github.com/facebookresearch/faiss) - Vector search
-- [FastAPI](https://fastapi.tiangolo.com/) - REST API
+- [MCP](https://modelcontextprotocol.io/) - Model Context Protocol
 - [uv](https://github.com/astral-sh/uv) - Package management
