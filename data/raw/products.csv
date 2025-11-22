@@ -1,0 +1,11 @@
+id,name,category,price,description
+101,Enterprise Analytics Platform,Software,50000,Advanced analytics and BI platform for enterprises
+102,Cloud Data Warehouse,Software,75000,Scalable cloud-based data warehousing solution
+103,AI Consulting Services,Services,100000,Expert AI and ML consulting for business transformation
+104,Data Integration Suite,Software,35000,ETL and data integration tools for multi-source data
+105,Security Audit Package,Services,25000,Comprehensive security assessment and audit
+106,Custom Dashboard Development,Services,15000,Tailored dashboard and visualization development
+107,Machine Learning Platform,Software,80000,End-to-end ML platform with AutoML capabilities
+108,Training Workshop Series,Services,10000,Multi-day training on data science and analytics
+109,API Management Platform,Software,40000,Enterprise API gateway and management solution
+110,Data Quality Tools,Software,30000,Data profiling validation and quality management

@@ -1,0 +1,47 @@
+# Talk2Metadata Configuration Example
+# Copy this file to config.yml and customize as needed
+
+# Data directories
+data:
+  raw_dir: "./data/raw"
+  processed_dir: "./data/processed"
+  indexes_dir: "./data/indexes"
+  metadata_dir: "./data/metadata"
+
+# Schema detection settings
+schema:
+  fk_detection:
+    use_heuristics: true
+    inclusion_tolerance: 0.1  # Allow 10% mismatch in FK relationships
+    min_coverage: 0.9          # Require 90% coverage for FK inference
+
+# Embedding configuration
+embedding:
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Fast and accurate
+  # Alternative models:
+  # - "sentence-transformers/all-mpnet-base-v2"  # Higher quality, slower
+  # - "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"  # Optimized for QA
+  device: null  # null for auto-detect, or 'cpu', 'cuda:0', etc.
+  batch_size: 32
+  normalize: true
+
+# Retrieval settings
+retrieval:
+  top_k: 5
+  similarity_metric: "cosine"
+
+  # Hybrid search configuration (combines BM25 + semantic search)
+  hybrid:
+    alpha: 0.5  # Weight for combining scores (0=BM25 only, 1=semantic only)
+    fusion_method: "rrf"  # Fusion method: "rrf" (Reciprocal Rank Fusion) or "weighted_sum"
+    rrf_k: 60  # K parameter for RRF (default: 60)
+
+  # Future features
+  use_reranking: false  # Requires cross-encoder (optional)
+
+# Agent configuration (optional, future feature)
+agent:
+  enabled: false
+  provider: "openai"  # openai, anthropic, etc.
+  model: "gpt-4o-mini"
+  temperature: 0.0

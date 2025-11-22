@@ -1,0 +1,19 @@
+# Include important documentation and config files
+include README.md
+include LICENSE
+include config.example.yml
+
+# Include type information
+include src/talk2metadata/py.typed
+
+# Exclude test and development files
+prune tests
+prune docs
+prune examples
+prune scripts
+prune data
+
+# Exclude cache and build artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store

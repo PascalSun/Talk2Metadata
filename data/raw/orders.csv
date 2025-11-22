@@ -1,0 +1,21 @@
+id,customer_id,product_id,amount,quantity,order_date,status,sales_rep
+1001,1,101,50000,1,2023-02-01,completed,John Smith
+1002,1,106,15000,1,2023-02-15,completed,John Smith
+1003,2,102,75000,1,2023-03-10,completed,Sarah Johnson
+1004,3,103,100000,1,2023-03-25,completed,Michael Brown
+1005,4,101,50000,1,2023-04-15,completed,Emma Davis
+1006,2,107,80000,1,2023-05-02,completed,Sarah Johnson
+1007,5,104,35000,1,2023-05-20,in_progress,John Smith
+1008,6,105,25000,1,2023-06-05,completed,Michael Brown
+1009,7,101,50000,1,2023-06-25,completed,Emma Davis
+1010,8,109,40000,1,2023-07-10,completed,Sarah Johnson
+1011,9,102,75000,1,2023-07-28,completed,John Smith
+1012,10,106,15000,1,2023-08-12,completed,Michael Brown
+1013,1,110,30000,1,2023-08-30,completed,John Smith
+1014,4,107,80000,1,2023-09-15,in_progress,Emma Davis
+1015,5,103,100000,1,2023-09-28,pending,Sarah Johnson
+1016,3,108,10000,2,2023-10-05,completed,Michael Brown
+1017,6,104,35000,1,2023-10-18,completed,John Smith
+1018,7,110,30000,1,2023-11-01,completed,Emma Davis
+1019,2,105,25000,1,2023-11-15,pending,Sarah Johnson
+1020,9,107,80000,1,2023-11-28,completed,John Smith
