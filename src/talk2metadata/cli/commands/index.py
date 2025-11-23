@@ -11,6 +11,12 @@ from talk2metadata.core.indexer import Indexer
 from talk2metadata.core.schema import SchemaMetadata
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.paths import (
+    find_schema_file,
+    get_indexes_dir,
+    get_metadata_dir,
+    get_processed_dir,
+)
 
 logger = get_logger(__name__)
 
@@ -78,12 +84,12 @@ def index_cmd(
         talk2metadata index --model sentence-transformers/all-mpnet-base-v2
     """
     config = get_config()
+    run_id = config.get("run_id")
 
     # 1. Load schema metadata
     if not metadata_path:
-        metadata_path = (
-            Path(config.get("data.metadata_dir", "./data/metadata")) / "schema.json"
-        )
+        metadata_dir = get_metadata_dir(run_id, config)
+        metadata_path = find_schema_file(metadata_dir)
 
     click.echo(f"📄 Loading schema metadata from {metadata_path}")
 
@@ -107,9 +113,8 @@ def index_cmd(
 
     # 2. Load tables
     if not tables_path:
-        tables_path = (
-            Path(config.get("data.processed_dir", "./data/processed")) / "tables.pkl"
-        )
+        processed_dir = get_processed_dir(run_id, config)
+        tables_path = processed_dir / "tables.pkl"
 
     click.echo(f"📥 Loading tables from {tables_path}")
 
@@ -182,7 +187,7 @@ def index_cmd(
     if output_dir:
         index_dir = Path(output_dir)
     else:
-        index_dir = Path(config.get("data.indexes_dir", "./data/indexes"))
+        index_dir = get_indexes_dir(run_id, config)
 
     index_dir.mkdir(parents=True, exist_ok=True)
 

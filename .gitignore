@@ -78,3 +78,7 @@ site/
 uv.lock
 
 config.mcp.yml
+
+data
+
+!data/raw/

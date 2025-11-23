@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import click
@@ -14,6 +15,7 @@ from talk2metadata.core.schema_viz import (
 )
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.paths import find_schema_file, get_metadata_dir
 
 logger = get_logger(__name__)
 
@@ -74,13 +76,14 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
         talk2metadata schema --edit
     """
     config = get_config()
+    run_id = config.get("run_id")
 
     # Determine schema file path
     if schema_file:
         schema_path = Path(schema_file)
     else:
-        metadata_dir = Path(config.get("data.metadata_dir", "./data/metadata"))
-        schema_path = metadata_dir / "schema.json"
+        metadata_dir = get_metadata_dir(run_id, config)
+        schema_path = find_schema_file(metadata_dir)
 
     if not schema_path.exists():
         click.echo(f"❌ Schema file not found: {schema_path}", err=True)
@@ -143,7 +146,11 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
         if output_file:
             viz_path = Path(output_file)
         else:
-            viz_path = schema_path.parent / "schema_visualization.html"
+            # Generate filename with target table name
+            target_table_safe = re.sub(r"[^\w\-_.]", "_", schema.target_table)
+            viz_path = (
+                schema_path.parent / f"schema_visualization_{target_table_safe}.html"
+            )
 
         click.echo("\n🎨 Generating visualization...")
         try:

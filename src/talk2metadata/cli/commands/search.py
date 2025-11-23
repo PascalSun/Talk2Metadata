@@ -10,6 +10,7 @@ import click
 from talk2metadata.core.retriever import Retriever
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.paths import get_indexes_dir
 
 logger = get_logger(__name__)
 
@@ -84,10 +85,11 @@ def search_cmd(
         talk2metadata search "VIP customers" --show-score
     """
     config = get_config()
+    run_id = config.get("run_id")
 
     # 1. Load index and create retriever
     if not index_dir:
-        index_dir = Path(config.get("data.indexes_dir", "./data/indexes"))
+        index_dir = get_indexes_dir(run_id, config)
     else:
         index_dir = Path(index_dir)
 

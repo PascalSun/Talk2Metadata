@@ -28,6 +28,7 @@ class Config:
     def _get_default_config() -> Dict[str, Any]:
         """Get default configuration."""
         return {
+            "run_id": None,  # Optional run ID for organizing multiple runs
             "data": {
                 "raw_dir": "./data/raw",
                 "processed_dir": "./data/processed",

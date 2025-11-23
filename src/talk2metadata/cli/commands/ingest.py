@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import click
@@ -11,6 +12,7 @@ from talk2metadata.core.schema import SchemaDetector
 from talk2metadata.core.schema_viz import generate_html_visualization, validate_schema
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.paths import get_metadata_dir, get_processed_dir
 
 logger = get_logger(__name__)
 
@@ -220,13 +222,17 @@ def ingest_cmd(
             click.echo("✓ Schema validation passed!")
 
     # 5. Save metadata
+    run_id = config.get("run_id")
+
     if output_dir:
         metadata_dir = Path(output_dir)
     else:
-        metadata_dir = Path(config.get("data.metadata_dir", "./data/metadata"))
+        metadata_dir = get_metadata_dir(run_id, config)
 
     metadata_dir.mkdir(parents=True, exist_ok=True)
-    metadata_path = metadata_dir / "schema.json"
+    # Generate filename with target table name
+    target_table_safe = re.sub(r"[^\w\-_.]", "_", metadata.target_table)
+    metadata_path = metadata_dir / f"schema_{target_table_safe}.json"
 
     click.echo(f"\n💾 Saving metadata to {metadata_path}")
     try:
@@ -238,7 +244,7 @@ def ingest_cmd(
 
     # 5.5. Generate visualization if requested
     if visualize:
-        viz_path = metadata_dir / "schema_visualization.html"
+        viz_path = metadata_dir / f"schema_visualization_{target_table_safe}.html"
         click.echo("\n🎨 Generating schema visualization...")
         try:
             generate_html_visualization(metadata, viz_path)
@@ -249,7 +255,7 @@ def ingest_cmd(
             # Don't abort, visualization is optional
 
     # 6. Save raw tables (for indexing)
-    processed_dir = Path(config.get("data.processed_dir", "./data/processed"))
+    processed_dir = get_processed_dir(run_id, config)
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     click.echo(f"💾 Saving processed tables to {processed_dir}")
