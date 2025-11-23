@@ -190,6 +190,6 @@ uv run python -c "from sentence_transformers import SentenceTransformer; Sentenc
 
 ## Next Steps
 
-- Read the [MCP Quick Start Guide](../docs/mcp-quickstart.md)
-- Explore [MCP Integration Guide](../docs/mcp-integration.md)
+- Read the [MCP Quick Start Guide](../docs/mcp/quickstart.md)
+- Explore [MCP Integration Guide](../docs/mcp/integration.md)
 - Try with your own data!

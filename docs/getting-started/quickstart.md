@@ -169,6 +169,6 @@ for result in results:
 
 ## Next Steps
 
-- [MCP Quick Start Guide](../mcp-quickstart.md) - Running the MCP server for AI integration
-- [MCP Integration Guide](../mcp-integration.md) - Complete MCP documentation
+- [MCP Quick Start Guide](../mcp/quickstart.md) - Running the MCP server for AI integration
+- [MCP Integration Guide](../mcp/integration.md) - Complete MCP documentation
 - Check `examples/` directory for more Python API usage examples

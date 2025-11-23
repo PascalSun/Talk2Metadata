@@ -4,23 +4,26 @@ import pandas as pd
 import pytest
 
 from talk2metadata.core.schema import SchemaDetector
-from talk2metadata.connectors import CSVLoader
 
 
 def test_schema_detector():
     """Test schema detection."""
     # Create sample tables
-    customers = pd.DataFrame({
-        "id": [1, 2, 3],
-        "name": ["Alice", "Bob", "Charlie"],
-        "industry": ["Healthcare", "Tech", "Finance"],
-    })
+    customers = pd.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "name": ["Alice", "Bob", "Charlie"],
+            "industry": ["Healthcare", "Tech", "Finance"],
+        }
+    )
 
-    orders = pd.DataFrame({
-        "id": [101, 102, 103],
-        "customer_id": [1, 2, 1],
-        "amount": [1000, 2000, 1500],
-    })
+    orders = pd.DataFrame(
+        {
+            "id": [101, 102, 103],
+            "customer_id": [1, 2, 1],
+            "amount": [1000, 2000, 1500],
+        }
+    )
 
     tables = {"customers": customers, "orders": orders}
 

@@ -18,15 +18,16 @@ logger = get_logger(__name__)
 @click.command(name="ingest")
 @click.argument(
     "source_type",
+    required=False,
     type=click.Choice(["csv", "database", "db"], case_sensitive=False),
 )
-@click.argument("source_path")
+@click.argument("source_path", required=False)
 @click.option(
     "--target",
     "-t",
     "target_table",
-    required=True,
-    help="Target table name",
+    required=False,
+    help="Target table name (can also be set in config.yml)",
 )
 @click.option(
     "--schema",
@@ -72,13 +73,13 @@ def ingest_cmd(
 ):
     """Ingest data from CSV files or database.
 
-    SOURCE_TYPE: csv, database, or db
+    SOURCE_TYPE: csv, database, or db (optional if set in config.yml)
 
-    SOURCE_PATH: Path to CSV directory or database connection string
+    SOURCE_PATH: Path to CSV directory or database connection string (optional if set in config.yml)
 
     \b
     Examples:
-        # Ingest from CSV files
+        # Ingest from CSV files (with CLI arguments)
         talk2metadata ingest csv ./data/csv --target orders
 
         # Ingest from PostgreSQL
@@ -89,8 +90,39 @@ def ingest_cmd(
 
         # Ingest with provided schema
         talk2metadata ingest csv ./data/csv --target orders --schema schema.json
+
+        # Ingest using config.yml settings (no arguments needed)
+        talk2metadata ingest
     """
     config = get_config()
+
+    # Read from config if not provided via CLI
+    if source_type is None:
+        source_type = config.get("ingest.data_type")
+    if source_path is None:
+        source_path = config.get("ingest.source_path")
+    if target_table is None:
+        target_table = config.get("ingest.target_table")
+
+    # Validate required parameters
+    if source_type is None:
+        click.echo(
+            "❌ Error: source_type is required. Provide it as an argument or set 'ingest.data_type' in config.yml",
+            err=True,
+        )
+        raise click.Abort()
+    if source_path is None:
+        click.echo(
+            "❌ Error: source_path is required. Provide it as an argument or set 'ingest.source_path' in config.yml",
+            err=True,
+        )
+        raise click.Abort()
+    if target_table is None:
+        click.echo(
+            "❌ Error: target_table is required. Provide it with --target option or set 'ingest.target_table' in config.yml",
+            err=True,
+        )
+        raise click.Abort()
 
     click.echo(f"🔧 Ingesting from {source_type}: {source_path}")
     click.echo(f"   Target table: {target_table}")
@@ -143,7 +175,7 @@ def ingest_cmd(
             provided_schema=provided_schema,
         )
 
-        click.echo(f"✓ Schema detection complete:")
+        click.echo("✓ Schema detection complete:")
         click.echo(f"   - Tables: {len(metadata.tables)}")
         click.echo(f"   - Foreign keys: {len(metadata.foreign_keys)}")
 
@@ -199,7 +231,7 @@ def ingest_cmd(
     click.echo(f"\n💾 Saving metadata to {metadata_path}")
     try:
         metadata.save(metadata_path)
-        click.echo(f"✓ Metadata saved successfully")
+        click.echo("✓ Metadata saved successfully")
     except Exception as e:
         click.echo(f"❌ Failed to save metadata: {e}", err=True)
         raise click.Abort()
@@ -207,7 +239,7 @@ def ingest_cmd(
     # 5.5. Generate visualization if requested
     if visualize:
         viz_path = metadata_dir / "schema_visualization.html"
-        click.echo(f"\n🎨 Generating schema visualization...")
+        click.echo("\n🎨 Generating schema visualization...")
         try:
             generate_html_visualization(metadata, viz_path)
             click.echo(f"✓ Visualization saved to {viz_path}")
@@ -233,8 +265,8 @@ def ingest_cmd(
         raise click.Abort()
 
     click.echo("\n✅ Ingestion complete!")
-    click.echo(f"\nNext steps:")
-    click.echo(f"   1. Review schema: talk2metadata schema --validate")
+    click.echo("\nNext steps:")
+    click.echo("   1. Review schema: talk2metadata schema --validate")
     if not visualize:
-        click.echo(f"   2. Visualize schema: talk2metadata schema --visualize")
-    click.echo(f"   3. Build index: talk2metadata index")
+        click.echo("   2. Visualize schema: talk2metadata schema --visualize")
+    click.echo("   3. Build index: talk2metadata index")

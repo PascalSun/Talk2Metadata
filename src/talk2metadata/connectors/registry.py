@@ -59,8 +59,7 @@ class ConnectorFactory:
         if connector_type_lower not in CONNECTOR_REGISTRY:
             available = ", ".join(sorted(CONNECTOR_REGISTRY.keys()))
             raise ValueError(
-                f"Unknown connector type: {connector_type}. "
-                f"Available: {available}"
+                f"Unknown connector type: {connector_type}. " f"Available: {available}"
             )
 
         connector_class = CONNECTOR_REGISTRY[connector_type_lower]

@@ -64,11 +64,7 @@ nav:
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
-  - User Guide:
-      - API Server: user-guide/api-server.md
   - MCP Server:
-      - Quick Start: mcp-quickstart.md
-      - Integration Guide: mcp-integration.md
-      - Implementation: mcp-implementation.md
-  - API Reference:
-      - REST API: api-reference/rest-api.md
+      - Quick Start: mcp/quickstart.md
+      - Integration Guide: mcp/integration.md
+      - Implementation: mcp/implementation.md

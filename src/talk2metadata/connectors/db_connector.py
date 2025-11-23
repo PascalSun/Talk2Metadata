@@ -57,7 +57,7 @@ class DBConnector(BaseConnector):
         self.schema = schema
         self.table_filter = tables
 
-        self.logger.info(f"Creating database engine")
+        self.logger.info("Creating database engine")
         self.engine: Engine = create_engine(connection_string)
 
         # Test connection
@@ -90,9 +90,7 @@ class DBConnector(BaseConnector):
             try:
                 df = self.load_single_table(table_name)
                 tables[table_name] = df
-                self.logger.debug(
-                    f"  Loaded {len(df)} rows, {len(df.columns)} columns"
-                )
+                self.logger.debug(f"  Loaded {len(df)} rows, {len(df.columns)} columns")
             except Exception as e:
                 self.logger.error(f"Failed to load table {table_name}: {e}")
                 raise
@@ -140,9 +138,7 @@ class DBConnector(BaseConnector):
         # Validate table exists
         all_tables = inspect(self.engine).get_table_names(schema=self.schema)
         if table_name not in all_tables:
-            raise ValueError(
-                f"Table '{table_name}' not found. Available: {all_tables}"
-            )
+            raise ValueError(f"Table '{table_name}' not found. Available: {all_tables}")
 
         # Build query
         if self.schema:
@@ -213,5 +209,5 @@ class DBConnector(BaseConnector):
         """Cleanup on deletion."""
         try:
             self.close()
-        except:
+        except Exception:
             pass

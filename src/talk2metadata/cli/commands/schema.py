@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import click
@@ -146,7 +145,7 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
         else:
             viz_path = schema_path.parent / "schema_visualization.html"
 
-        click.echo(f"\n🎨 Generating visualization...")
+        click.echo("\n🎨 Generating visualization...")
         try:
             generate_html_visualization(schema, viz_path)
             click.echo(f"✓ Visualization saved to {viz_path}")
@@ -160,7 +159,6 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
         click.echo(f"\n✏️  Opening schema for editing: {schema_path}")
         try:
             import subprocess
-            import sys
 
             # Try to open in default editor
             editor = config.get("editor", None)
@@ -178,7 +176,7 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
                     click.echo(
                         "   Please edit the schema file manually: "
                         f"{schema_path.absolute()}",
-                        err=True
+                        err=True,
                     )
 
             # After editing, reload and validate
@@ -205,10 +203,9 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
         click.echo(f"\n📄 Exporting schema for review to {export_path}...")
         try:
             export_schema_for_review(schema, export_path, include_validation=validate)
-            click.echo(f"✓ Schema exported successfully")
-            click.echo(f"   Review the file and use it with:")
+            click.echo("✓ Schema exported successfully")
+            click.echo("   Review the file and use it with:")
             click.echo(f"   talk2metadata ingest <source> --schema {export_path}")
         except Exception as e:
             click.echo(f"❌ Failed to export schema: {e}", err=True)
             raise click.Abort()
-

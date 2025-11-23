@@ -237,14 +237,14 @@ if python -c "import talk2metadata.mcp" 2>/dev/null; then
     echo "  1. Edit config.mcp.yml with your OAuth credentials"
     echo "  2. Ingest and index your data (see commands above)"
     echo "  3. Start the MCP server"
-    echo "  4. See docs/mcp-quickstart.md for details"
+    echo "  4. See docs/mcp/quickstart.md for details"
     echo ""
 fi
 
 echo_info "Documentation:"
 echo "  README.md                    # Main documentation"
-echo "  docs/mcp-quickstart.md       # MCP quick start"
-echo "  docs/mcp-integration.md      # MCP integration guide"
+echo "  docs/mcp/quickstart.md       # MCP quick start"
+echo "  docs/mcp/integration.md      # MCP integration guide"
 echo ""
 echo_info "Run tests:"
 echo "  pytest tests/"

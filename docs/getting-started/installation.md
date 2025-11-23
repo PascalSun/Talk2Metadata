@@ -113,6 +113,7 @@ Edit `config.yml` to customize:
 - Hybrid search parameters
 
 Key configuration options:
+
 - `data.raw_dir`, `data.indexes_dir` - Data directories
 - `embedding.model_name` - Embedding model (default: `all-MiniLM-L6-v2`)
 - `schema.fk_detection.min_coverage` - FK detection threshold (default: 0.9)
@@ -124,4 +125,4 @@ See `config.example.yml` for all available options.
 ## Next Steps
 
 - [Quick Start Tutorial](quickstart.md)
-- [MCP Quick Start Guide](../mcp-quickstart.md)
+- [MCP Quick Start Guide](../mcp/quickstart.md)

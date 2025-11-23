@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -311,11 +311,7 @@ class SchemaDetector:
 
         # Priority 2: Column ending with '_id' that is unique
         for col in df.columns:
-            if (
-                col.endswith("_id")
-                and df[col].is_unique
-                and not df[col].isna().any()
-            ):
+            if col.endswith("_id") and df[col].is_unique and not df[col].isna().any():
                 return col
 
         # Priority 3: Any unique column without nulls
@@ -400,9 +396,7 @@ class SchemaDetector:
         """
         # Remove suffixes
         base_name = (
-            column_name.replace("_id", "")
-            .replace("_key", "")
-            .replace("_fk", "")
+            column_name.replace("_id", "").replace("_key", "").replace("_fk", "")
         )
 
         candidates = []

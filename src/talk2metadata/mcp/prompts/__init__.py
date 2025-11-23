@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mcp.server import Server
-from mcp.types import GetPromptResult, Prompt, PromptMessage, TextContent
+from mcp.types import GetPromptResult, Prompt
 
 from . import help as help_prompt
 from . import search_guide

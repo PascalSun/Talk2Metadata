@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from talk2metadata.core.schema import ForeignKey, SchemaMetadata
+from talk2metadata.core.schema import SchemaMetadata
 from talk2metadata.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -186,7 +186,7 @@ def generate_html_visualization(
 <body>
     <div class="container">
         <h1>{title}</h1>
-        
+
         <div class="info">
             <div class="info-item">
                 <span class="info-label">Target Table:</span> <strong>{schema.target_table}</strong>
@@ -360,24 +360,24 @@ def _generate_table_cards(schema: SchemaMetadata) -> str:
             for fk in outgoing_fks:
                 coverage_class = "high" if fk.coverage >= 0.9 else "low"
                 low_coverage_class = "low-coverage" if fk.coverage < 0.9 else ""
-                fk_html += f'''
+                fk_html += f"""
                     <div class="fk-item {low_coverage_class}">
                         {fk.child_table}.{fk.child_column} → {fk.parent_table}.{fk.parent_column}
                         <span class="coverage {coverage_class}">({fk.coverage:.1%})</span>
                     </div>
-                '''
+                """
             fk_html += "</div>"
 
         if incoming_fks:
             fk_html += '<div class="fk-list"><strong>Incoming FKs:</strong>'
             for fk in incoming_fks:
                 coverage_class = "high" if fk.coverage >= 0.9 else "low"
-                fk_html += f'''
+                fk_html += f"""
                     <div class="fk-item">
                         {fk.child_table}.{fk.child_column} → {fk.parent_table}.{fk.parent_column}
                         <span class="coverage {coverage_class}">({fk.coverage:.1%})</span>
                     </div>
-                '''
+                """
             fk_html += "</div>"
 
         columns_list = ", ".join(table_meta.columns.keys())
@@ -417,15 +417,11 @@ def validate_schema(schema: SchemaMetadata) -> Dict[str, List[str]]:
     for fk in schema.foreign_keys:
         # Check child table exists
         if fk.child_table not in schema.tables:
-            errors.append(
-                f"FK references non-existent child table: {fk.child_table}"
-            )
+            errors.append(f"FK references non-existent child table: {fk.child_table}")
 
         # Check parent table exists
         if fk.parent_table not in schema.tables:
-            errors.append(
-                f"FK references non-existent parent table: {fk.parent_table}"
-            )
+            errors.append(f"FK references non-existent parent table: {fk.parent_table}")
 
         # Check child column exists
         if fk.child_table in schema.tables:
@@ -563,7 +559,7 @@ def export_schema_for_review(
             lines.append(f"  Parent: {fk.parent_table}.{fk.parent_column}")
             lines.append(f"  Coverage: {fk.coverage:.1%}")
             if fk.coverage < 0.9:
-                lines.append(f"  ⚠️  Low coverage - please verify this relationship")
+                lines.append("  ⚠️  Low coverage - please verify this relationship")
     else:
         lines.append("No foreign key relationships detected.")
     lines.append("")
@@ -581,4 +577,3 @@ def export_schema_for_review(
 
     logger.info(f"Exported schema review file to {output_path}")
     return output_path
-

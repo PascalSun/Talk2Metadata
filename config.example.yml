@@ -39,6 +39,12 @@ retrieval:
   # Future features
   use_reranking: false  # Requires cross-encoder (optional)
 
+# Ingest configuration (optional, can be overridden by CLI arguments)
+ingest:
+  target_table: null  # Target table name (e.g., "orders")
+  data_type: null     # Source type: "csv", "database", or "db"
+  source_path: null  # Path to CSV directory or database connection string
+
 # Agent configuration (optional, future feature)
 agent:
   enabled: false

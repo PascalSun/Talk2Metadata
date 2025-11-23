@@ -5,11 +5,11 @@ from __future__ import annotations
 import click
 
 from talk2metadata import __version__
-from talk2metadata.utils.config import load_config
-from talk2metadata.utils.logging import setup_logging
 
 # Import commands
 from talk2metadata.cli.commands import index, ingest, schema, search
+from talk2metadata.utils.config import load_config
+from talk2metadata.utils.logging import setup_logging
 
 
 @click.group()

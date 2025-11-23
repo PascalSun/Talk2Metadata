@@ -85,9 +85,7 @@ class MCPConfig:
                 public_base_url=oauth_data.get(
                     "public_base_url", "http://localhost:8000/o"
                 ),
-                client_id=oauth_data.get(
-                    "client_id", "talk2metadata-mcp-client"
-                ),
+                client_id=oauth_data.get("client_id", "talk2metadata-mcp-client"),
                 client_secret=oauth_data.get("client_secret", "test"),
                 use_introspection=oauth_data.get("use_introspection", True),
                 verify_ssl=oauth_data.get("verify_ssl", False),
@@ -127,9 +125,7 @@ class MCPConfig:
             public_base_url=os.getenv(
                 "OIDC_PUBLIC_BASE_URL", "http://localhost:8000/o"
             ),
-            client_id=os.getenv(
-                "OIDC_CLIENT_ID", "talk2metadata-mcp-client"
-            ),
+            client_id=os.getenv("OIDC_CLIENT_ID", "talk2metadata-mcp-client"),
             client_secret=os.getenv("OIDC_CLIENT_SECRET", "test"),
             use_introspection=os.getenv("OIDC_USE_INTROSPECTION", "true").lower()
             in ("true", "1", "yes"),

@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from talk2metadata.core.retriever import Retriever
 from talk2metadata.core.hybrid_retriever import HybridRetriever
+from talk2metadata.core.retriever import Retriever
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 

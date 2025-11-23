@@ -308,9 +308,9 @@ Server runs at `http://localhost:8010` with OAuth 2.0 authentication.
 
 ### Documentation
 
-- [Quick Start Guide](docs/mcp-quickstart.md) - Get started in 3 steps
-- [Integration Guide](docs/mcp-integration.md) - Complete user documentation
-- [Implementation Details](docs/mcp-implementation.md) - Technical architecture
+- [Quick Start Guide](docs/mcp/quickstart.md) - Get started in 3 steps
+- [Integration Guide](docs/mcp/integration.md) - Complete user documentation
+- [Implementation Details](docs/mcp/implementation.md) - Technical architecture
 
 ### Example Usage
 

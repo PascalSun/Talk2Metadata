@@ -81,9 +81,7 @@ class CSVLoader(BaseConnector):
             try:
                 df = pd.read_csv(csv_file, **self.pandas_kwargs)
                 tables[table_name] = df
-                self.logger.debug(
-                    f"  Loaded {len(df)} rows, {len(df.columns)} columns"
-                )
+                self.logger.debug(f"  Loaded {len(df)} rows, {len(df.columns)} columns")
             except Exception as e:
                 self.logger.error(f"Failed to load {csv_file}: {e}")
                 raise

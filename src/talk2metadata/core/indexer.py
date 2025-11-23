@@ -43,8 +43,10 @@ class Indexer:
         )
         self.device = device or config.get("embedding.device")
         self.batch_size = batch_size or config.get("embedding.batch_size", 32)
-        self.normalize = normalize if normalize is not None else config.get(
-            "embedding.normalize", True
+        self.normalize = (
+            normalize
+            if normalize is not None
+            else config.get("embedding.normalize", True)
         )
 
         logger.info(f"Loading embedding model: {self.model_name}")
@@ -57,7 +59,10 @@ class Indexer:
         tables: Dict[str, pd.DataFrame],
         schema_metadata: SchemaMetadata,
         return_texts: bool = False,
-    ) -> Tuple[faiss.IndexFlatL2, List[Dict]] | Tuple[faiss.IndexFlatL2, List[Dict], List[str]]:
+    ) -> (
+        Tuple[faiss.IndexFlatL2, List[Dict]]
+        | Tuple[faiss.IndexFlatL2, List[Dict], List[str]]
+    ):
         """Build FAISS index from tables.
 
         Args:
@@ -135,9 +140,7 @@ class Indexer:
         for idx, row in tqdm(
             target_df.iterrows(), total=len(target_df), desc="Creating texts"
         ):
-            text = self._row_to_text(
-                row, target_table, tables, fks, schema_metadata
-            )
+            text = self._row_to_text(row, target_table, tables, fks, schema_metadata)
             texts.append(text)
 
             # Store metadata for retrieval

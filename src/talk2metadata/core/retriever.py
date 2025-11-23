@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import faiss
 import numpy as np
@@ -58,8 +58,10 @@ class Retriever:
             "embedding.model_name", "sentence-transformers/all-MiniLM-L6-v2"
         )
         self.device = device or config.get("embedding.device")
-        self.normalize = normalize if normalize is not None else config.get(
-            "embedding.normalize", True
+        self.normalize = (
+            normalize
+            if normalize is not None
+            else config.get("embedding.normalize", True)
         )
 
         logger.info(f"Loading embedding model for queries: {self.model_name}")

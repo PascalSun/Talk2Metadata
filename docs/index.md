@@ -57,10 +57,10 @@ Talk2Metadata is built with a modular architecture:
 - **Core**: Schema detection, embedding generation, retrieval
 - **Connectors**: Pluggable data sources (CSV, PostgreSQL, MySQL, SQLite)
 - **CLI**: User-friendly command-line interface
-- **API**: RESTful API for integration (optional)
+- **MCP Server**: Model Context Protocol server for AI agent integration
 
 ## Next Steps
 
 - [Installation Guide](getting-started/installation.md)
 - [Quick Start Tutorial](getting-started/quickstart.md)
-- [REST API Reference](api-reference/rest-api.md)
+- [MCP Server Quick Start](mcp/quickstart.md)

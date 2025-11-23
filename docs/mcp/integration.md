@@ -293,6 +293,6 @@ talk2metadata-mcp sse
 
 ## See Also
 
-- [Quick Start Guide](mcp-quickstart.md)
-- [Implementation Details](mcp-implementation.md)
-- [Main Documentation](index.md)
+- [Quick Start Guide](quickstart.md)
+- [Implementation Details](implementation.md)
+- [Main Documentation](../index.md)

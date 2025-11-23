@@ -484,6 +484,6 @@ CMD ["talk2metadata-mcp", "sse"]
 
 ## See Also
 
-- [User Guide](mcp-integration.md)
-- [Quick Start](mcp-quickstart.md)
-- [Main Documentation](index.md)
+- [User Guide](integration.md)
+- [Quick Start](quickstart.md)
+- [Main Documentation](../index.md)

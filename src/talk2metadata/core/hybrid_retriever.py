@@ -351,6 +351,7 @@ class HybridRetriever:
         Returns:
             Fused and ranked results
         """
+
         # Normalize scores to [0, 1]
         def normalize_scores(scores):
             if not scores or max(scores) == 0:
@@ -399,8 +400,7 @@ class HybridRetriever:
                     score=float(combined_score),
                     rank=rank,
                     bm25_score=bm25_scores_dict.get(idx),
-                    semantic_score=1
-                    - semantic_scores_dict.get(idx, 1),  # Invert back
+                    semantic_score=1 - semantic_scores_dict.get(idx, 1),  # Invert back
                     fusion_method="weighted_sum",
                 )
             )

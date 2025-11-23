@@ -62,7 +62,9 @@ logger = get_logger(__name__)
     help="Fusion method for combining results",
 )
 @click.pass_context
-def search_cmd(ctx, query, top_k, index_dir, output_format, show_score, hybrid, alpha, fusion):
+def search_cmd(
+    ctx, query, top_k, index_dir, output_format, show_score, hybrid, alpha, fusion
+):
     """Search for relevant records using natural language.
 
     QUERY: Natural language search query
@@ -102,7 +104,7 @@ def search_cmd(ctx, query, top_k, index_dir, output_format, show_score, hybrid, 
 
     if output_format == "text":
         mode_str = "hybrid (BM25 + semantic)" if hybrid else "semantic"
-        click.echo(f"🔍 Searching: \"{query}\" [{mode_str}]")
+        click.echo(f'🔍 Searching: "{query}" [{mode_str}]')
         click.echo(f"   Top-K: {top_k}\n")
 
     try:
@@ -186,7 +188,7 @@ def search_cmd(ctx, query, top_k, index_dir, output_format, show_score, hybrid, 
                         click.echo(f"  Semantic Score: {result.semantic_score:.4f}")
             click.echo(f"Table: {result.table}")
             click.echo(f"Row ID: {result.row_id}")
-            click.echo(f"\nData:")
+            click.echo("\nData:")
 
             for key, value in result.data.items():
                 # Truncate long values

@@ -53,6 +53,11 @@ class Config:
                 "use_reranking": False,  # Optional cross-encoder
                 "similarity_metric": "cosine",
             },
+            "ingest": {
+                "target_table": None,
+                "data_type": None,
+                "source_path": None,
+            },
             "agent": {
                 "enabled": False,  # Currently disabled
                 "provider": "openai",

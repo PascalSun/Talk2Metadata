@@ -55,7 +55,9 @@ logger = get_logger(__name__)
     help="Build hybrid index (FAISS + BM25) for better search quality",
 )
 @click.pass_context
-def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_size, hybrid):
+def index_cmd(
+    ctx, metadata_path, tables_path, output_dir, model_name, batch_size, hybrid
+):
     """Build search index from ingested data.
 
     This command:
@@ -79,7 +81,9 @@ def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_siz
 
     # 1. Load schema metadata
     if not metadata_path:
-        metadata_path = Path(config.get("data.metadata_dir", "./data/metadata")) / "schema.json"
+        metadata_path = (
+            Path(config.get("data.metadata_dir", "./data/metadata")) / "schema.json"
+        )
 
     click.echo(f"📄 Loading schema metadata from {metadata_path}")
 
@@ -93,7 +97,7 @@ def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_siz
 
     try:
         schema_metadata = SchemaMetadata.load(metadata_path)
-        click.echo(f"✓ Loaded schema:")
+        click.echo("✓ Loaded schema:")
         click.echo(f"   - Target table: {schema_metadata.target_table}")
         click.echo(f"   - Tables: {len(schema_metadata.tables)}")
         click.echo(f"   - Foreign keys: {len(schema_metadata.foreign_keys)}")
@@ -103,7 +107,9 @@ def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_siz
 
     # 2. Load tables
     if not tables_path:
-        tables_path = Path(config.get("data.processed_dir", "./data/processed")) / "tables.pkl"
+        tables_path = (
+            Path(config.get("data.processed_dir", "./data/processed")) / "tables.pkl"
+        )
 
     click.echo(f"📥 Loading tables from {tables_path}")
 
@@ -124,7 +130,7 @@ def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_siz
         raise click.Abort()
 
     # 3. Initialize indexer
-    click.echo(f"\n🤖 Initializing indexer...")
+    click.echo("\n🤖 Initializing indexer...")
     if model_name:
         click.echo(f"   Model: {model_name}")
 
@@ -139,28 +145,31 @@ def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_siz
 
     # 4. Build index
     if hybrid:
-        click.echo(f"\n🔨 Building hybrid search index (FAISS + BM25)...")
+        click.echo("\n🔨 Building hybrid search index (FAISS + BM25)...")
     else:
-        click.echo(f"\n🔨 Building search index...")
-    click.echo(f"   This may take a while...")
+        click.echo("\n🔨 Building search index...")
+    click.echo("   This may take a while...")
 
     try:
         if hybrid:
             # Build both FAISS and BM25 indexes
-            index, records, texts = indexer.build_index(tables, schema_metadata, return_texts=True)
-            click.echo(f"✓ FAISS index built successfully:")
+            index, records, texts = indexer.build_index(
+                tables, schema_metadata, return_texts=True
+            )
+            click.echo("✓ FAISS index built successfully:")
             click.echo(f"   - Vectors: {index.ntotal}")
             click.echo(f"   - Dimension: {index.d}")
             click.echo(f"   - Records: {len(records)}")
 
             # Build BM25 index
-            click.echo(f"\n🔨 Building BM25 index...")
+            click.echo("\n🔨 Building BM25 index...")
             from talk2metadata.core.hybrid_retriever import BM25Index
+
             bm25_index = BM25Index(texts)
-            click.echo(f"✓ BM25 index built successfully")
+            click.echo("✓ BM25 index built successfully")
         else:
             index, records = indexer.build_index(tables, schema_metadata)
-            click.echo(f"✓ Index built successfully:")
+            click.echo("✓ Index built successfully:")
             click.echo(f"   - Vectors: {index.ntotal}")
             click.echo(f"   - Dimension: {index.d}")
             click.echo(f"   - Records: {len(records)}")
@@ -184,7 +193,7 @@ def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_siz
 
     try:
         indexer.save_index(index, records, index_path, records_path)
-        click.echo(f"✓ Index saved:")
+        click.echo("✓ Index saved:")
         click.echo(f"   - {index_path}")
         click.echo(f"   - {records_path}")
 
@@ -198,6 +207,10 @@ def index_cmd(ctx, metadata_path, tables_path, output_dir, model_name, batch_siz
 
     click.echo("\n✅ Indexing complete!")
     if hybrid:
-        click.echo(f"\nNext step: Run 'talk2metadata search \"your query\" --hybrid' to use hybrid search")
+        click.echo(
+            "\nNext step: Run 'talk2metadata search \"your query\" --hybrid' to use hybrid search"
+        )
     else:
-        click.echo(f"\nNext step: Run 'talk2metadata search \"your query\"' to search records")
+        click.echo(
+            "\nNext step: Run 'talk2metadata search \"your query\"' to search records"
+        )
