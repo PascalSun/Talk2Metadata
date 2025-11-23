@@ -123,6 +123,15 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short --cov=talk2metadata --cov-report=term-missing --cov-report=html"
+filterwarnings = [
+    # Ignore deprecation warnings from external dependencies (Docs2Synth)
+    "ignore::DeprecationWarning:docs2synth",
+    # Ignore SWIG-related deprecation warnings (match by message pattern)
+    "ignore:builtin type SwigPy.* has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+    # Ignore datetime.utcnow() deprecation warnings from external code
+    "ignore:datetime.datetime.utcnow.* is deprecated:DeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["src/talk2metadata"]

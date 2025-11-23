@@ -248,7 +248,7 @@ class SchemaDetector:
             fks = self._parse_provided_fks(provided_schema["foreign_keys"], tables)
         else:
             logger.info("Inferring foreign keys from data")
-            fks = self._detect_foreign_keys(tables, table_metadata)
+            fks = self._detect_foreign_keys(tables, table_metadata, target_table)
 
         logger.info(f"Detected {len(fks)} foreign key relationships")
         for fk in fks:
@@ -325,8 +325,77 @@ class SchemaDetector:
         self,
         tables: Dict[str, pd.DataFrame],
         table_metadata: Dict[str, TableMetadata],
+        target_table: str,
     ) -> List[ForeignKey]:
-        """Detect foreign key relationships.
+        """Detect foreign key relationships using hybrid strategy.
+
+        Combines rule-based detection with AI agent analysis for fuzzy patterns.
+
+        Args:
+            tables: Dict of DataFrames
+            table_metadata: Dict of TableMetadata
+            target_table: Name of the target table (for deduplication priority)
+
+        Returns:
+            List of ForeignKey objects
+        """
+        # Phase 1: Rule-based detection
+        logger.info("Running rule-based FK detection...")
+        rule_based_fks = self._detect_fks_rule_based(tables, table_metadata)
+        logger.info(f"Rule-based detection found {len(rule_based_fks)} FKs")
+
+        # Phase 2: Decide whether to use agent
+        use_agent = self.fk_config.get("use_agent", True)
+        agent_trigger = self.fk_config.get("agent_trigger", "auto")
+        agent_threshold = self.fk_config.get("agent_threshold", 2)
+
+        should_use_agent = False
+        if not use_agent:
+            logger.info("Agent-based FK detection disabled in config")
+        elif agent_trigger == "never":
+            logger.info("Agent trigger set to 'never'")
+        elif agent_trigger == "always":
+            should_use_agent = True
+            logger.info("Agent trigger set to 'always'")
+        elif agent_trigger == "auto":
+            if len(rule_based_fks) < agent_threshold:
+                should_use_agent = True
+                logger.info(
+                    f"Rule-based found {len(rule_based_fks)} FKs (< threshold {agent_threshold}), "
+                    "triggering agent-based detection"
+                )
+            else:
+                logger.info(
+                    f"Rule-based found {len(rule_based_fks)} FKs (>= threshold {agent_threshold}), "
+                    "skipping agent-based detection"
+                )
+
+        # Phase 3: Agent-based detection (if triggered)
+        agent_fks = []
+        if should_use_agent:
+            agent_fks = self._detect_fks_with_agent(
+                tables, table_metadata, rule_based_fks, target_table
+            )
+
+        # Combine results
+        all_fks = rule_based_fks + agent_fks
+
+        # Phase 4: Deduplicate and prioritize FKs
+        all_fks = self._deduplicate_fks(all_fks, table_metadata, target_table)
+
+        logger.info(
+            f"Total FKs detected: {len(all_fks)} "
+            f"(rule-based: {len(rule_based_fks)}, agent: {len(agent_fks)})"
+        )
+
+        return all_fks
+
+    def _detect_fks_rule_based(
+        self,
+        tables: Dict[str, pd.DataFrame],
+        table_metadata: Dict[str, TableMetadata],
+    ) -> List[ForeignKey]:
+        """Rule-based FK detection (original heuristic method).
 
         Args:
             tables: Dict of DataFrames
@@ -485,3 +554,377 @@ class SchemaDetector:
             )
 
         return fks
+
+    def _find_column_candidates(
+        self,
+        tables: Dict[str, pd.DataFrame],
+        table_metadata: Dict[str, TableMetadata],
+        target_table: Optional[str] = None,
+    ) -> List[Dict]:
+        """Find candidate column pairs with high value overlap.
+
+        Args:
+            tables: Dict of DataFrames
+            table_metadata: Dict of TableMetadata
+            target_table: Target/center table name (prioritized in star schema)
+
+        Returns:
+            List of candidate dicts with overlap info, sorted by target table priority
+        """
+        candidates = []
+        min_overlap = self.fk_config.get("min_overlap_ratio", 0.8)
+
+        # Find all column pairs with potential relationships
+        for child_name, child_df in tables.items():
+            # Skip target table itself as child
+            if child_name == target_table:
+                continue
+
+            for child_col in child_df.columns:
+                # Note: A column CAN be both a PK and FK (foreign primary key pattern)
+                # We only skip self-referential relationships (same table)
+
+                # Check overlap with all other tables' primary keys
+                for parent_name, parent_df in tables.items():
+                    if parent_name == child_name:
+                        continue
+
+                    parent_pk = table_metadata[parent_name].primary_key
+                    if parent_pk is None or parent_pk not in parent_df.columns:
+                        continue
+
+                    # Calculate overlap
+                    coverage = self._check_inclusion(
+                        child_df[child_col], parent_df[parent_pk]
+                    )
+
+                    if coverage >= min_overlap:
+                        # Get sample values for agent analysis
+                        child_sample = child_df[child_col].dropna().head(5).tolist()
+                        parent_sample = parent_df[parent_pk].dropna().head(5).tolist()
+
+                        # Mark if this is a target table relationship
+                        is_target_relationship = parent_name == target_table
+
+                        candidates.append(
+                            {
+                                "child_table": child_name,
+                                "child_column": child_col,
+                                "parent_table": parent_name,
+                                "parent_column": parent_pk,
+                                "coverage": coverage,
+                                "child_sample": child_sample,
+                                "parent_sample": parent_sample,
+                                "child_unique": child_df[child_col].nunique(),
+                                "parent_unique": parent_df[parent_pk].nunique(),
+                                "is_target_relationship": is_target_relationship,
+                            }
+                        )
+
+        # Sort candidates: target table relationships first, then by coverage
+        candidates.sort(key=lambda x: (not x["is_target_relationship"], -x["coverage"]))
+
+        return candidates
+
+    def _detect_fks_with_agent(
+        self,
+        tables: Dict[str, pd.DataFrame],
+        table_metadata: Dict[str, TableMetadata],
+        rule_based_fks: List[ForeignKey],
+        target_table: Optional[str] = None,
+    ) -> List[ForeignKey]:
+        """Use AI agent to detect foreign keys from fuzzy patterns.
+
+        Args:
+            tables: Dict of DataFrames
+            table_metadata: Dict of TableMetadata
+            rule_based_fks: FKs already found by rule-based detection
+            target_table: Target/center table name (for star schema prioritization)
+
+        Returns:
+            List of additional ForeignKey objects found by agent
+        """
+        try:
+            from talk2metadata.agent import AgentWrapper
+        except ImportError:
+            logger.warning(
+                "Agent module not available, skipping agent-based FK detection"
+            )
+            return []
+
+        # Find candidates (prioritizing target table relationships)
+        candidates = self._find_column_candidates(tables, table_metadata, target_table)
+
+        if not candidates:
+            logger.info("No candidate column pairs found for agent analysis")
+            return []
+
+        # Filter out candidates already found by rule-based detection
+        existing_fks = {
+            (fk.child_table, fk.child_column, fk.parent_table, fk.parent_column)
+            for fk in rule_based_fks
+        }
+        candidates = [
+            c
+            for c in candidates
+            if (
+                c["child_table"],
+                c["child_column"],
+                c["parent_table"],
+                c["parent_column"],
+            )
+            not in existing_fks
+        ]
+
+        if not candidates:
+            logger.info(
+                "All high-overlap candidates already detected by rule-based method"
+            )
+            return []
+
+        logger.info(f"Analyzing {len(candidates)} candidate FKs with AI agent...")
+
+        # Prepare prompt for agent (with target table context)
+        prompt = self._build_agent_prompt(candidates, table_metadata, target_table)
+
+        # Initialize agent wrapper
+        try:
+            agent = AgentWrapper()
+        except Exception as e:
+            logger.warning(f"Failed to initialize agent: {e}")
+            logger.warning("Skipping agent-based FK detection")
+            return []
+
+        # Call agent
+        try:
+            response = agent.generate(
+                prompt=prompt,
+                temperature=0.0,
+                max_tokens=4096,
+            )
+
+            # Parse response
+            agent_fks = self._parse_agent_response(response.content, candidates)
+
+            logger.info(f"Agent detected {len(agent_fks)} additional FKs")
+            return agent_fks
+
+        except Exception as e:
+            logger.error(f"Agent FK detection failed: {e}")
+            return []
+
+    def _build_agent_prompt(
+        self,
+        candidates: List[Dict],
+        table_metadata: Dict[str, TableMetadata],
+        target_table: Optional[str] = None,
+    ) -> str:
+        """Build prompt for agent FK detection.
+
+        Args:
+            candidates: List of candidate column pairs
+            table_metadata: Dict of TableMetadata
+            target_table: Target/center table name (for star schema context)
+
+        Returns:
+            Prompt string
+        """
+        # Build table schema summary
+        schema_summary = "## Database Schema\n\n"
+        if target_table:
+            schema_summary += f"**Target/Center Table: `{target_table}`** (all tables should relate to this)\n\n"
+
+        for table_name, meta in table_metadata.items():
+            marker = " (TARGET)" if table_name == target_table else ""
+            schema_summary += f"**{table_name}{marker}**\n"
+            schema_summary += f"- Primary Key: {meta.primary_key}\n"
+            schema_summary += f"- Columns: {', '.join(meta.columns.keys())}\n"
+            schema_summary += f"- Row Count: {meta.row_count}\n\n"
+
+        # Build candidates summary
+        candidates_summary = "## Candidate Foreign Key Relationships\n\n"
+        for i, c in enumerate(candidates, 1):
+            # Mark if this is a target table relationship
+            target_marker = (
+                " ⭐ TARGET TABLE" if c.get("is_target_relationship") else ""
+            )
+            candidates_summary += f"### Candidate {i}{target_marker}\n"
+            candidates_summary += f"- Child: `{c['child_table']}.{c['child_column']}`\n"
+            candidates_summary += (
+                f"- Parent: `{c['parent_table']}.{c['parent_column']}`\n"
+            )
+            candidates_summary += f"- Coverage: {c['coverage']:.2%}\n"
+            candidates_summary += f"- Child unique values: {c['child_unique']}\n"
+            candidates_summary += f"- Parent unique values: {c['parent_unique']}\n"
+            candidates_summary += f"- Child sample values: {c['child_sample']}\n"
+            candidates_summary += f"- Parent sample values: {c['parent_sample']}\n\n"
+
+        # Build architecture context
+        architecture_context = ""
+        if target_table:
+            architecture_context = f"""
+## Architecture Context
+
+This database follows a **star schema** pattern with `{target_table}` as the central table:
+- All dimension tables should have foreign keys pointing to `{target_table}`
+- Prefer relationships to the target table over intermediate tables
+- If a column could reference multiple tables with the same primary key, choose the target table
+"""
+
+        prompt = f"""You are a database schema expert analyzing potential foreign key relationships.
+
+{schema_summary}
+
+{candidates_summary}
+{architecture_context}
+
+## Task
+
+Analyze each candidate relationship and determine if it represents a valid foreign key.
+Consider:
+1. **Star schema architecture**: Prioritize relationships to the target table (`{target_table if target_table else 'N/A'}`)
+2. Column name semantics (e.g., similar names across tables)
+3. Data type compatibility
+4. Value overlap coverage (higher is better)
+5. Cardinality patterns (many-to-one relationships)
+6. Domain knowledge (e.g., "ANumber" likely means assignment/accession number)
+
+**IMPORTANT**: When multiple candidates point to tables with the same primary key values,
+prefer the relationship to the target table (marked with ⭐).
+
+## Output Format
+
+For each candidate that IS a valid foreign key, output ONLY the candidate number (e.g., "1", "2", "3").
+Put each number on a separate line.
+If a candidate is NOT a valid FK, do not include its number.
+
+Example output:
+```
+1
+3
+5
+```
+
+Begin your analysis:"""
+
+        return prompt
+
+    def _parse_agent_response(
+        self, response_text: str, candidates: List[Dict]
+    ) -> List[ForeignKey]:
+        """Parse agent response and create ForeignKey objects.
+
+        Args:
+            response_text: Agent response text
+            candidates: Original candidates list
+
+        Returns:
+            List of ForeignKey objects
+        """
+        import re
+
+        # Extract candidate numbers from response
+        # Look for lines with just numbers
+        lines = response_text.strip().split("\n")
+        selected_indices = []
+
+        for line in lines:
+            line = line.strip()
+            # Match lines that are just numbers (possibly in code blocks)
+            if re.match(r"^\d+$", line):
+                selected_indices.append(int(line))
+
+        # Create ForeignKey objects
+        fks = []
+        for idx in selected_indices:
+            if 1 <= idx <= len(candidates):
+                c = candidates[idx - 1]
+                fks.append(
+                    ForeignKey(
+                        child_table=c["child_table"],
+                        child_column=c["child_column"],
+                        parent_table=c["parent_table"],
+                        parent_column=c["parent_column"],
+                        coverage=c["coverage"],
+                    )
+                )
+            else:
+                logger.warning(f"Agent returned invalid candidate index: {idx}")
+
+        return fks
+
+    def _deduplicate_fks(
+        self,
+        fks: List[ForeignKey],
+        table_metadata: Dict[str, TableMetadata],
+        target_table: str,
+    ) -> List[ForeignKey]:
+        """Deduplicate foreign keys and resolve conflicts.
+
+        When a child column points to multiple parent columns with similar values,
+        keep only the best relationship based on:
+        1. Prefer relationships to the target table
+        2. Prefer higher coverage
+        3. Prefer parent table with matching primary key
+
+        Args:
+            fks: List of detected foreign keys
+            table_metadata: Dict of TableMetadata
+            target_table: Name of the target table (for priority)
+
+        Returns:
+            Deduplicated list of ForeignKey objects
+        """
+        if not fks:
+            return fks
+
+        # Group FKs by (child_table, child_column)
+        fk_groups = {}
+        for fk in fks:
+            key = (fk.child_table, fk.child_column)
+            if key not in fk_groups:
+                fk_groups[key] = []
+            fk_groups[key].append(fk)
+
+        deduplicated = []
+
+        for (child_table, child_column), group in fk_groups.items():
+            if len(group) == 1:
+                # Only one FK for this column, keep it
+                deduplicated.append(group[0])
+                continue
+
+            # Multiple FKs for the same child column, need to choose
+            logger.info(
+                f"Found {len(group)} FK candidates for {child_table}.{child_column}, deduplicating..."
+            )
+
+            # Sort by priority:
+            # 1. Target table first
+            # 2. Higher coverage
+            # 3. Parent table name (for determinism)
+            def fk_priority(fk: ForeignKey) -> tuple:
+                is_target = 1 if fk.parent_table == target_table else 0
+                return (is_target, fk.coverage, fk.parent_table)
+
+            group_sorted = sorted(group, key=fk_priority, reverse=True)
+            best_fk = group_sorted[0]
+
+            # Check if this looks like the same relationship pointing to different tables
+            # (e.g., ANumber in abstracts vs wamex_reports)
+            parent_columns = {fk.parent_column for fk in group}
+            parent_tables = {fk.parent_table for fk in group}
+
+            if len(parent_columns) == 1 and len(parent_tables) > 1:
+                # Same column name in different parent tables
+                # This might be a case where both parent tables represent the same entity
+                logger.info(
+                    f"  Detected redundant FK: {child_table}.{child_column} -> "
+                    f"{', '.join(sorted(parent_tables))}.{list(parent_columns)[0]}"
+                )
+                logger.info(f"  Keeping only: {best_fk}")
+
+            deduplicated.append(best_fk)
+
+        logger.info(f"Deduplication: {len(fks)} -> {len(deduplicated)} FKs")
+        return deduplicated
