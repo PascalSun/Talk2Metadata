@@ -25,6 +25,7 @@ from talk2metadata.mcp.auth import oauth_proxy
 from talk2metadata.mcp.auth.oidc_client import OIDCResourceServer
 from talk2metadata.mcp.config import MCPConfig
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.metrics import MetricsExporter, get_metrics_collector
 
 from .prompts import register_prompts
 from .resources import register_resources
@@ -118,6 +119,29 @@ def create_asgi_app(
         """Health check endpoint."""
         return JSONResponse(
             {"status": "healthy", "service": SERVER_NAME, "version": __version__}
+        )
+
+    async def handle_metrics(request: Request) -> JSONResponse:
+        """Get performance metrics in JSON format."""
+        collector = get_metrics_collector()
+        snapshot = collector.get_snapshot()
+        tool_counts = collector.get_tool_counts()
+
+        # Add tool-specific counts to snapshot
+        metrics_dict = snapshot.to_dict()
+        metrics_dict["tool_usage"] = tool_counts
+
+        return JSONResponse(metrics_dict)
+
+    async def handle_metrics_prometheus(request: Request) -> Response:
+        """Get performance metrics in Prometheus text format."""
+        collector = get_metrics_collector()
+        snapshot = collector.get_snapshot()
+        prometheus_text = MetricsExporter.to_prometheus(snapshot)
+
+        return Response(
+            content=prometheus_text,
+            media_type="text/plain; version=0.0.4",
         )
 
     async def handle_favicon(request: Request) -> Response:
@@ -227,6 +251,10 @@ def create_asgi_app(
 
     routes = [
         Route("/health", endpoint=handle_health, methods=["GET"]),
+        Route("/metrics", endpoint=handle_metrics, methods=["GET"]),
+        Route(
+            "/metrics/prometheus", endpoint=handle_metrics_prometheus, methods=["GET"]
+        ),
         Route("/", endpoint=handle_metadata, methods=["GET", "HEAD"]),
         Route("/metadata", endpoint=handle_metadata, methods=["GET"]),
         Route(

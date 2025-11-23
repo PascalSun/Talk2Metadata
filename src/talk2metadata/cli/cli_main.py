@@ -7,7 +7,7 @@ import click
 from talk2metadata import __version__
 
 # Import commands
-from talk2metadata.cli.commands import index, ingest, schema, search
+from talk2metadata.cli.commands import analyze, benchmark, index, ingest, schema, search
 from talk2metadata.utils.config import load_config
 from talk2metadata.utils.logging import setup_logging
 
@@ -39,6 +39,12 @@ def cli(ctx, config, log_level):
 
         # Search for records
         talk2metadata search "customers in healthcare industry"
+
+        # Run performance benchmarks
+        talk2metadata benchmark --num-runs 20
+
+        # Analyze log files
+        talk2metadata analyze logs/mcp_server.log
     """
     ctx.ensure_object(dict)
 
@@ -55,6 +61,8 @@ cli.add_command(ingest.ingest_cmd)
 cli.add_command(index.index_cmd)
 cli.add_command(schema.schema_cmd)
 cli.add_command(search.search_cmd)
+cli.add_command(benchmark.benchmark_cmd)
+cli.add_command(analyze.analyze_cmd)
 
 
 def main():

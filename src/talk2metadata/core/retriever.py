@@ -12,6 +12,7 @@ from sentence_transformers import SentenceTransformer
 
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.timing import TimingContext, timed
 
 logger = get_logger(__name__)
 
@@ -68,6 +69,7 @@ class Retriever:
         self.model = SentenceTransformer(self.model_name, device=self.device)
 
     @classmethod
+    @timed("retriever.load", log_level="info")
     def from_paths(
         cls,
         index_path: str | Path,
@@ -94,7 +96,8 @@ class Retriever:
         """
         from talk2metadata.core.indexer import Indexer
 
-        index, records = Indexer.load_index(index_path, records_path)
+        with TimingContext("index_load"):
+            index, records = Indexer.load_index(index_path, records_path)
 
         return cls(
             index=index,
@@ -128,6 +131,7 @@ class Retriever:
 
         return cls.from_paths(index_path, records_path)
 
+    @timed("retriever.search")
     def search(
         self,
         query: str,
@@ -150,31 +154,37 @@ class Retriever:
         logger.debug(f"Searching for: '{query}' (top_k={top_k})")
 
         # 1. Encode query
-        query_embedding = self._encode_query(query)
+        with TimingContext("query_encoding"):
+            query_embedding = self._encode_query(query)
 
         # 2. Search FAISS index
-        distances, indices = self.index.search(query_embedding, top_k)
+        with TimingContext("faiss_search"):
+            distances, indices = self.index.search(query_embedding, top_k)
 
         # 3. Format results
-        results = []
-        for rank, (distance, idx) in enumerate(zip(distances[0], indices[0]), start=1):
-            if idx == -1:  # FAISS returns -1 for invalid indices
-                break
+        with TimingContext("result_formatting"):
+            results = []
+            for rank, (distance, idx) in enumerate(
+                zip(distances[0], indices[0]), start=1
+            ):
+                if idx == -1:  # FAISS returns -1 for invalid indices
+                    break
 
-            record = self.records[idx]
-            results.append(
-                SearchResult(
-                    row_id=record["row_id"],
-                    table=record["table"],
-                    data=record["data"],
-                    score=float(distance),
-                    rank=rank,
+                record = self.records[idx]
+                results.append(
+                    SearchResult(
+                        row_id=record["row_id"],
+                        table=record["table"],
+                        data=record["data"],
+                        score=float(distance),
+                        rank=rank,
+                    )
                 )
-            )
 
         logger.debug(f"Found {len(results)} results")
         return results
 
+    @timed("retriever.search_batch")
     def search_batch(
         self,
         queries: List[str],
@@ -192,32 +202,35 @@ class Retriever:
         logger.info(f"Batch searching {len(queries)} queries")
 
         # Encode all queries
-        query_embeddings = self._encode_queries(queries)
+        with TimingContext("batch_query_encoding"):
+            query_embeddings = self._encode_queries(queries)
 
         # Search
-        distances, indices = self.index.search(query_embeddings, top_k)
+        with TimingContext("batch_faiss_search"):
+            distances, indices = self.index.search(query_embeddings, top_k)
 
         # Format results
-        all_results = []
-        for query_distances, query_indices in zip(distances, indices):
-            results = []
-            for rank, (distance, idx) in enumerate(
-                zip(query_distances, query_indices), start=1
-            ):
-                if idx == -1:
-                    break
+        with TimingContext("batch_result_formatting"):
+            all_results = []
+            for query_distances, query_indices in zip(distances, indices):
+                results = []
+                for rank, (distance, idx) in enumerate(
+                    zip(query_distances, query_indices), start=1
+                ):
+                    if idx == -1:
+                        break
 
-                record = self.records[idx]
-                results.append(
-                    SearchResult(
-                        row_id=record["row_id"],
-                        table=record["table"],
-                        data=record["data"],
-                        score=float(distance),
-                        rank=rank,
+                    record = self.records[idx]
+                    results.append(
+                        SearchResult(
+                            row_id=record["row_id"],
+                            table=record["table"],
+                            data=record["data"],
+                            score=float(distance),
+                            rank=rank,
+                        )
                     )
-                )
-            all_results.append(results)
+                all_results.append(results)
 
         return all_results
 

@@ -61,6 +61,13 @@ Talk2Metadata is built with a modular architecture:
 
 ## Next Steps
 
+### Getting Started
 - [Installation Guide](getting-started/installation.md)
 - [Quick Start Tutorial](getting-started/quickstart.md)
+
+### Advanced Features
 - [MCP Server Quick Start](mcp/quickstart.md)
+- [Utilities & Tools](utils/index.md) - Configuration, logging, performance monitoring
+
+### Monitoring & Performance
+- [Performance Monitoring](utils/monitoring.md) - Benchmarking and latency analysis

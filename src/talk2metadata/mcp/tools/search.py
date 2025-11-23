@@ -7,7 +7,13 @@ from typing import Any
 
 from mcp.types import TextContent
 
+from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.metrics import log_slow_query
+from talk2metadata.utils.timing import TimingContext
+
 from ..common.retriever import get_retriever
+
+logger = get_logger(__name__)
 
 
 async def handle_search(args: dict[str, Any]) -> list[TextContent]:
@@ -19,6 +25,8 @@ async def handle_search(args: dict[str, Any]) -> list[TextContent]:
     Returns:
         List of TextContent with search results
     """
+    import time
+
     query = args.get("query", "")
     top_k = args.get("top_k", 5)
     hybrid = args.get("hybrid", False)
@@ -32,37 +40,57 @@ async def handle_search(args: dict[str, Any]) -> list[TextContent]:
         ]
 
     try:
+        start_time = time.perf_counter()
+
         # Get retriever
-        retriever = get_retriever(use_hybrid=hybrid)
+        with TimingContext("retriever_init"):
+            retriever = get_retriever(use_hybrid=hybrid)
 
         # Search
-        results = retriever.search(query, top_k=top_k)
+        with TimingContext("search_execution"):
+            results = retriever.search(query, top_k=top_k)
 
         # Format results
-        formatted = []
-        for r in results:
-            result_dict = {
-                "rank": r.rank,
-                "table": r.table,
-                "row_id": r.row_id,
-                "score": r.score,
-                "data": r.data,
+        with TimingContext("result_serialization"):
+            formatted = []
+            for r in results:
+                result_dict = {
+                    "rank": r.rank,
+                    "table": r.table,
+                    "row_id": r.row_id,
+                    "score": r.score,
+                    "data": r.data,
+                }
+
+                # Add hybrid-specific fields if available
+                if hybrid and hasattr(r, "bm25_score"):
+                    result_dict["bm25_score"] = r.bm25_score
+                    result_dict["semantic_score"] = r.semantic_score
+
+                formatted.append(result_dict)
+
+            output = {
+                "query": query,
+                "top_k": top_k,
+                "search_mode": "hybrid" if hybrid else "semantic",
+                "results_count": len(formatted),
+                "results": formatted,
             }
 
-            # Add hybrid-specific fields if available
-            if hybrid and hasattr(r, "bm25_score"):
-                result_dict["bm25_score"] = r.bm25_score
-                result_dict["semantic_score"] = r.semantic_score
-
-            formatted.append(result_dict)
-
-        output = {
-            "query": query,
-            "top_k": top_k,
-            "search_mode": "hybrid" if hybrid else "semantic",
-            "results_count": len(formatted),
-            "results": formatted,
-        }
+        # Check for slow query
+        total_duration = (time.perf_counter() - start_time) * 1000
+        slow_query_threshold = 100.0  # milliseconds
+        if total_duration > slow_query_threshold:
+            log_slow_query(
+                query=query,
+                duration_ms=total_duration,
+                threshold_ms=slow_query_threshold,
+                details={
+                    "top_k": top_k,
+                    "hybrid": hybrid,
+                    "results_count": len(formatted),
+                },
+            )
 
         return [TextContent(type="text", text=json.dumps(output, indent=2))]
 

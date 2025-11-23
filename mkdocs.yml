@@ -68,3 +68,6 @@ nav:
       - Quick Start: mcp/quickstart.md
       - Integration Guide: mcp/integration.md
       - Implementation: mcp/implementation.md
+  - Utilities & Tools:
+      - Overview: utils/index.md
+      - Performance Monitoring: utils/monitoring.md

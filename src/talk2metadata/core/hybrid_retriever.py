@@ -13,6 +13,7 @@ from rank_bm25 import BM25Okapi
 from talk2metadata.core.retriever import Retriever, SearchResult
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.timing import TimingContext, timed
 
 logger = get_logger(__name__)
 
@@ -70,12 +71,16 @@ class BM25Index:
         Returns:
             Tuple of (indices, scores)
         """
-        tokenized_query = self.tokenizer(query)
-        scores = self.bm25.get_scores(tokenized_query)
+        with TimingContext("bm25_tokenization"):
+            tokenized_query = self.tokenizer(query)
+
+        with TimingContext("bm25_scoring"):
+            scores = self.bm25.get_scores(tokenized_query)
 
         # Get top-k indices
-        top_indices = np.argsort(scores)[::-1][:top_k]
-        top_scores = scores[top_indices]
+        with TimingContext("bm25_ranking"):
+            top_indices = np.argsort(scores)[::-1][:top_k]
+            top_scores = scores[top_indices]
 
         return top_indices.tolist(), top_scores.tolist()
 
@@ -153,6 +158,7 @@ class HybridRetriever:
         )
 
     @classmethod
+    @timed("hybrid_retriever.load", log_level="info")
     def from_paths(
         cls,
         index_path: str | Path,
@@ -181,7 +187,8 @@ class HybridRetriever:
         )
 
         # Load BM25 index
-        bm25_index = BM25Index.load(bm25_path)
+        with TimingContext("bm25_load"):
+            bm25_index = BM25Index.load(bm25_path)
 
         return cls(
             semantic_retriever=semantic_retriever,
@@ -225,6 +232,7 @@ class HybridRetriever:
             fusion_method=fusion_method,
         )
 
+    @timed("hybrid_retriever.search")
     def search(
         self,
         query: str,
@@ -242,22 +250,25 @@ class HybridRetriever:
         logger.debug(f"Hybrid search for: '{query}' (top_k={top_k})")
 
         # 1. Get semantic search results
-        semantic_results = self.semantic_retriever.search(query, top_k=top_k * 2)
+        with TimingContext("hybrid_semantic_search"):
+            semantic_results = self.semantic_retriever.search(query, top_k=top_k * 2)
 
         # 2. Get BM25 results
-        bm25_indices, bm25_scores = self.bm25_index.search(query, top_k=top_k * 2)
+        with TimingContext("hybrid_bm25_search"):
+            bm25_indices, bm25_scores = self.bm25_index.search(query, top_k=top_k * 2)
 
         # 3. Fuse results
-        if self.fusion_method == "rrf":
-            fused_results = self._reciprocal_rank_fusion(
-                semantic_results, bm25_indices, bm25_scores, top_k
-            )
-        elif self.fusion_method == "weighted_sum":
-            fused_results = self._weighted_sum_fusion(
-                semantic_results, bm25_indices, bm25_scores, top_k
-            )
-        else:
-            raise ValueError(f"Unknown fusion method: {self.fusion_method}")
+        with TimingContext(f"fusion_{self.fusion_method}"):
+            if self.fusion_method == "rrf":
+                fused_results = self._reciprocal_rank_fusion(
+                    semantic_results, bm25_indices, bm25_scores, top_k
+                )
+            elif self.fusion_method == "weighted_sum":
+                fused_results = self._weighted_sum_fusion(
+                    semantic_results, bm25_indices, bm25_scores, top_k
+                )
+            else:
+                raise ValueError(f"Unknown fusion method: {self.fusion_method}")
 
         logger.debug(f"Hybrid search returned {len(fused_results)} results")
         return fused_results
@@ -291,7 +302,7 @@ class HybridRetriever:
             rrf_scores[idx] = rrf_scores.get(idx, 0) + 1 / (self.rrf_k + result.rank)
 
         # Add BM25 scores
-        for rank, (idx, score) in enumerate(zip(bm25_indices, bm25_scores), start=1):
+        for rank, (idx, _) in enumerate(zip(bm25_indices, bm25_scores), start=1):
             rrf_scores[idx] = rrf_scores.get(idx, 0) + 1 / (self.rrf_k + rank)
 
         # Sort by RRF score
