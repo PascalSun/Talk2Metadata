@@ -38,8 +38,12 @@ class Config:
             "schema": {
                 "fk_detection": {
                     "use_heuristics": True,
+                    "use_agent": True,  # Enable agent-based FK detection
+                    "agent_trigger": "auto",  # auto | always | never
+                    "agent_threshold": 2,  # Use agent if < N FKs found by rules
                     "inclusion_tolerance": 0.1,  # 10% mismatch allowed
                     "min_coverage": 0.9,  # 90% coverage required for FK
+                    "min_overlap_ratio": 0.8,  # 80% value overlap for candidates
                 },
             },
             "embedding": {
