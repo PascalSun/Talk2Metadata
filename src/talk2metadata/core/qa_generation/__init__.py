@@ -9,8 +9,7 @@ This module generates QA pairs for evaluating retrieval strategies by:
 """
 
 from talk2metadata.core.qa_generation.generator import QAGenerator
-from talk2metadata.core.qa_generation.patterns import PathPattern, PathInstance
+from talk2metadata.core.qa_generation.patterns import PathInstance, PathPattern
 from talk2metadata.core.qa_generation.qa_pair import QAPair
 
 __all__ = ["QAGenerator", "PathPattern", "PathInstance", "QAPair"]
-

@@ -153,4 +153,3 @@ Your response:"""
             self.validate(qa_pair)
 
         return qa_pairs
-

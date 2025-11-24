@@ -7,7 +7,11 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from talk2metadata.core.qa_generation.patterns import PathInstance, PathNode, PathPattern
+from talk2metadata.core.qa_generation.patterns import (
+    PathInstance,
+    PathNode,
+    PathPattern,
+)
 from talk2metadata.core.schema import SchemaMetadata
 from talk2metadata.utils.logging import get_logger
 
@@ -149,9 +153,7 @@ class PathInstantiator:
             return None
 
         # Get all available ANumber values for starting table
-        start_anumbers = list(
-            self.anumber_to_records.get(start_table, {}).keys()
-        )
+        start_anumbers = list(self.anumber_to_records.get(start_table, {}).keys())
         if not start_anumbers:
             return None
 
@@ -232,4 +234,3 @@ class PathInstantiator:
         if self.target_table not in self.anumber_to_records:
             return []
         return list(self.anumber_to_records[self.target_table].keys())
-

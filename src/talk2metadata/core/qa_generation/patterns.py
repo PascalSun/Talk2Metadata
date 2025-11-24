@@ -14,7 +14,9 @@ class PathPattern:
     representing a meaningful query pattern that users might ask.
     """
 
-    pattern: List[str]  # Sequence of table names, e.g., ["historic_titles", "wamex_reports"]
+    pattern: List[
+        str
+    ]  # Sequence of table names, e.g., ["historic_titles", "wamex_reports"]
     semantic: str  # Semantic description of what this path represents
     question_template: str  # Template for generating questions, e.g., "哪些报告的标题包含'{historic_title}'？"
     answer_type: str  # "single" | "multiple" | "aggregate"
@@ -86,4 +88,3 @@ class PathInstance:
 
     def __repr__(self) -> str:
         return f"PathInstance(pattern={self.pattern.pattern}, nodes={len(self.nodes)}, answers={len(self.target_node_indices)})"
-

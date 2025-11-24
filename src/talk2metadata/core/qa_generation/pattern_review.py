@@ -32,7 +32,7 @@ def review_patterns_interactive(
     """
     if use_web and patterns_path:
         return review_patterns_web(patterns, patterns_path)
-    
+
     # Fallback to CLI interface
     return _review_patterns_cli(patterns, patterns_path)
 
@@ -69,7 +69,9 @@ def _review_patterns_cli(
         if pattern.description:
             click.echo(f"  Description: {pattern.description}")
 
-        action = click.prompt("\nAction", default="", show_default=False).strip().lower()
+        action = (
+            click.prompt("\nAction", default="", show_default=False).strip().lower()
+        )
 
         if action == "e":
             # Edit pattern
@@ -191,10 +193,14 @@ def _create_pattern_interactive() -> Optional[PathPattern]:
         )
         answer_type = click.prompt(
             "Answer Type",
-            type=click.Choice(["single", "multiple", "aggregate"], case_sensitive=False),
+            type=click.Choice(
+                ["single", "multiple", "aggregate"], case_sensitive=False
+            ),
             default="multiple",
         )
-        description = click.prompt("Description (optional)", default="", show_default=False)
+        description = click.prompt(
+            "Description (optional)", default="", show_default=False
+        )
 
         return PathPattern(
             pattern=path,
@@ -239,4 +245,3 @@ def _save_patterns(patterns: List[PathPattern], path: Path) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
     logger.info(f"Saved {len(patterns)} patterns to {path}")
-

@@ -1,114 +1,52 @@
-"""QA generation commands for creating evaluation datasets."""
+"""QA generation commands - refactored with modular structure."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import click
-import pandas as pd
 
-from talk2metadata.core.qa_generation import QAGenerator
-from talk2metadata.core.qa_generation.pattern_review import (
-    review_patterns_interactive,
+from talk2metadata.cli.decorators import (
+    handle_errors,
+    with_agent_config,
+    with_standard_options,
 )
-from talk2metadata.core.schema import SchemaMetadata
-from talk2metadata.connectors.csv_loader import CSVLoader
+from talk2metadata.cli.handlers import QAHandler
+from talk2metadata.cli.output import OutputFormatter
+from talk2metadata.cli.utils import CLIDataLoader
+from talk2metadata.core.qa_generation.pattern_review import review_patterns_interactive
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
-from talk2metadata.utils.paths import find_schema_file, get_metadata_dir, get_qa_dir
 
 logger = get_logger(__name__)
+out = OutputFormatter()
 
 
 @click.group(name="qa")
 def qa_group():
-    """QA generation commands for creating evaluation datasets."""
+    """QA generation commands for creating evaluation datasets.
+
+    This command group provides tools for generating question-answer pairs
+    from your database schema and data, useful for creating evaluation datasets.
+    """
     pass
 
 
-def _load_schema_and_tables():
-    """Load schema and tables from config.
-
-    Returns:
-        Tuple of (schema, tables, config, run_id)
-    """
-    config = get_config()
-    run_id = config.get("run_id")
-
-    # Load schema
-    metadata_dir = get_metadata_dir(run_id, config)
-    schema_path = find_schema_file(metadata_dir)
-
-    if not schema_path.exists():
-        click.echo(f"❌ Schema file not found: {schema_path}", err=True)
-        click.echo("   Run 'talk2metadata ingest' first to generate schema.", err=True)
-        raise click.Abort()
-
-    try:
-        schema = SchemaMetadata.load(schema_path)
-        click.echo(f"✓ Loaded schema from {schema_path}")
-        click.echo(f"   Target table: {schema.target_table}")
-        click.echo(f"   Tables: {len(schema.tables)}")
-    except Exception as e:
-        click.echo(f"❌ Failed to load schema: {e}", err=True)
-        raise click.Abort()
-
-    # Load tables
-    data_dir = Path(config.get("data.raw_dir", "./data/raw"))
-    if not data_dir.exists():
-        possible_dirs = [
-            Path("./data/wamex"),
-            Path("./data/raw"),
-            schema_path.parent.parent / "wamex",
-        ]
-        for pd in possible_dirs:
-            if pd.exists() and any(pd.glob("*.csv")):
-                data_dir = pd
-                break
-        else:
-            click.echo(f"❌ Data directory not found: {data_dir}", err=True)
-            click.echo("   Please set data.raw_dir in config.yml", err=True)
-            raise click.Abort()
-
-    click.echo(f"✓ Using data directory: {data_dir}")
-
-    click.echo("\n📥 Loading tables...")
-    try:
-        loader = CSVLoader(str(data_dir))
-        tables_dict = loader.load_tables()
-
-        tables = {}
-        for table_name in schema.tables.keys():
-            if table_name in tables_dict:
-                tables[table_name] = tables_dict[table_name]
-                click.echo(f"   ✓ {table_name}: {len(tables[table_name])} rows")
-            else:
-                click.echo(f"   ⚠ {table_name}: not found in data directory")
-
-        if not tables:
-            click.echo("❌ No tables found matching schema", err=True)
-            raise click.Abort()
-
-        return schema, tables, config, run_id
-
-    except Exception as e:
-        click.echo(f"❌ Failed to load tables: {e}", err=True)
-        raise click.Abort()
-
-
 @qa_group.command(name="path-generate")
+@with_standard_options
+@with_agent_config
 @click.option(
-    "--output",
-    "-o",
-    "output_file",
-    type=click.Path(),
-    help="Output file path (default: qa/kg_paths.json in run directory)",
+    "--num-patterns",
+    "-n",
+    type=int,
+    help="Number of path patterns to generate (default: from config)",
 )
+@handle_errors
 @click.pass_context
-def qa_path_generate_cmd(ctx, output_file):
+def qa_path_generate_cmd(
+    ctx, run_id, schema_file, output, provider, model, num_patterns
+):
     """Generate path patterns for QA generation.
 
-    This command uses LLM to analyze your database schema and generate
+    This command uses an LLM to analyze your database schema and generate
     meaningful path patterns that represent query patterns users might ask.
 
     \b
@@ -116,64 +54,65 @@ def qa_path_generate_cmd(ctx, output_file):
         # Generate patterns with settings from config.yml
         talk2metadata qa path-generate
 
+        # Generate with specific run ID
+        talk2metadata qa path-generate --run-id wamex_run
+
         # Save to custom location
         talk2metadata qa path-generate --output custom_patterns.json
+
+        # Use specific model
+        talk2metadata qa path-generate --provider openai --model gpt-4o
     """
     config = get_config()
-    run_id = config.get("run_id")
-    qa_config = config.get("qa_generation", {})
-    num_patterns = qa_config.get("num_patterns", 15)
-    agent_config = config.get("agent", {})
-    provider = agent_config.get("provider")
-    model = agent_config.get("model")
 
-    # Load schema and tables
-    schema, tables, config, run_id = _load_schema_and_tables()
+    # Update config with CLI options
+    if provider:
+        config.set("agent.provider", provider)
+    if model:
+        config.set("agent.model", model)
+    if run_id:
+        config.set("run_id", run_id)
 
-    # Determine output path
-    if output_file:
-        output_path = Path(output_file)
-    else:
-        qa_dir = get_qa_dir(run_id, config)
-        qa_dir.mkdir(parents=True, exist_ok=True)
-        output_path = qa_dir / "kg_paths.json"
+    # Load data
+    loader = CLIDataLoader(config)
+    schema, tables, config, run_id = loader.load_schema_and_tables(
+        schema_file=schema_file, run_id=run_id
+    )
 
     # Generate patterns
-    click.echo(f"\n🔍 Generating {num_patterns} path patterns...")
-    try:
-        generator = QAGenerator(
-            schema=schema,
-            tables=tables,
-            provider=provider,
-            model=model,
-        )
+    handler = QAHandler(config)
+    num_patterns = num_patterns or config.get("qa_generation.num_patterns", 15)
 
-        patterns = generator.generate_patterns(
-            num_patterns=num_patterns,
-            save_path=output_path,
-        )
+    out.progress_start(f"Generating {num_patterns} path patterns...")
+    patterns, output_path = handler.generate_patterns(
+        schema=schema,
+        tables=tables,
+        num_patterns=num_patterns,
+        output_file=output,
+        run_id=run_id,
+    )
 
-        click.echo(f"\n✓ Generated and saved {len(patterns)} patterns to {output_path}")
-        click.echo("\n📝 Next steps:")
-        click.echo(f"   1. Review patterns: talk2metadata qa review")
-        click.echo(f"   2. Generate QA pairs: talk2metadata qa generate")
-
-    except Exception as e:
-        click.echo(f"❌ Failed to generate patterns: {e}", err=True)
-        logger.exception("Pattern generation failed")
-        raise click.Abort()
+    out.success(f"Generated and saved {len(patterns)} patterns to {output_path}")
+    out.next_steps(
+        "📝 Next steps:",
+        [
+            "Review patterns: talk2metadata qa review",
+            "Generate QA pairs: talk2metadata qa generate",
+        ],
+    )
 
 
 @qa_group.command(name="review")
+@with_standard_options
 @click.option(
     "--patterns-file",
     "-p",
-    "patterns_file",
     type=click.Path(exists=True),
     help="Path to patterns file (default: qa/kg_paths.json in run directory)",
 )
+@handle_errors
 @click.pass_context
-def qa_review_cmd(ctx, patterns_file):
+def qa_review_cmd(ctx, run_id, schema_file, output, patterns_file):
     """Review and edit path patterns in web browser.
 
     Opens a web-based interface for reviewing and editing path patterns.
@@ -186,68 +125,78 @@ def qa_review_cmd(ctx, patterns_file):
 
         # Review patterns from custom file
         talk2metadata qa review --patterns-file custom_patterns.json
+
+        # Use specific run ID
+        talk2metadata qa review --run-id wamex_run
     """
     config = get_config()
-    run_id = config.get("run_id")
 
-    # Determine patterns file path
-    if patterns_file:
-        patterns_path = Path(patterns_file)
-    else:
-        qa_dir = get_qa_dir(run_id, config)
-        patterns_path = qa_dir / "kg_paths.json"
+    # Update config with CLI options
+    if run_id:
+        config.set("run_id", run_id)
 
-    if not patterns_path.exists():
-        click.echo(f"❌ Patterns file not found: {patterns_path}", err=True)
-        click.echo("   Run 'talk2metadata qa path-generate' first.", err=True)
-        raise click.Abort()
+    # Load schema
+    loader = CLIDataLoader(config)
+    schema = loader.load_schema(schema_file=schema_file, run_id=run_id)
 
     # Load patterns
+    handler = QAHandler(config)
     try:
-        # Load schema (needed for QAGenerator initialization)
-        metadata_dir = get_metadata_dir(run_id, config)
-        schema_path = find_schema_file(metadata_dir)
-        schema = SchemaMetadata.load(schema_path)
-        
-        # Create minimal generator (tables not needed for loading patterns)
-        generator = QAGenerator(
+        patterns, patterns_path = handler.load_patterns(
             schema=schema,
-            tables={},  # Not needed for review
+            patterns_file=patterns_file,
+            run_id=run_id,
         )
-        patterns = generator.load_patterns(patterns_path)
-        click.echo(f"✓ Loaded {len(patterns)} patterns from {patterns_path}")
-    except Exception as e:
-        click.echo(f"❌ Failed to load patterns: {e}", err=True)
+        out.success(f"Loaded {len(patterns)} patterns from {patterns_path}")
+    except FileNotFoundError as e:
+        out.error(f"Patterns file not found: {e}")
+        out.info("Run 'talk2metadata qa path-generate' first.")
         raise click.Abort()
 
     # Review patterns
-    click.echo(f"\n📝 Opening pattern review interface...")
+    out.section("📝 Opening pattern review interface...")
     try:
         reviewed_patterns = review_patterns_interactive(patterns, patterns_path)
-        click.echo(f"\n✓ Review complete, {len(reviewed_patterns)} patterns saved")
+        out.success(f"Review complete, {len(reviewed_patterns)} patterns saved")
     except Exception as e:
-        click.echo(f"❌ Review failed: {e}", err=True)
+        out.error(f"Review failed: {e}")
         logger.exception("Pattern review failed")
         raise click.Abort()
 
 
 @qa_group.command(name="generate")
+@with_standard_options
+@with_agent_config
 @click.option(
     "--patterns-file",
     "-p",
-    "patterns_file",
     type=click.Path(exists=True),
     help="Path to patterns file (default: qa/kg_paths.json in run directory)",
 )
 @click.option(
-    "--output",
-    "-o",
-    "output_file",
-    type=click.Path(),
-    help="Output file path for QA pairs (default: qa/qa_pairs.json in run directory)",
+    "--instances",
+    "-i",
+    type=int,
+    help="Number of instances per pattern (default: from config)",
 )
+@click.option(
+    "--validate/--no-validate",
+    default=None,
+    help="Validate generated QA pairs (default: from config)",
+)
+@handle_errors
 @click.pass_context
-def qa_generate_cmd(ctx, patterns_file, output_file):
+def qa_generate_cmd(
+    ctx,
+    run_id,
+    schema_file,
+    output,
+    provider,
+    model,
+    patterns_file,
+    instances,
+    validate,
+):
     """Generate QA pairs from path patterns.
 
     This command instantiates paths from real data, converts them to
@@ -263,116 +212,101 @@ def qa_generate_cmd(ctx, patterns_file, output_file):
 
         # Save to custom location
         talk2metadata qa generate --output custom_qa_pairs.json
+
+        # Set number of instances per pattern
+        talk2metadata qa generate --instances 10
+
+        # Disable validation
+        talk2metadata qa generate --no-validate
     """
     config = get_config()
-    run_id = config.get("run_id")
-    qa_config = config.get("qa_generation", {})
-    instances_per_pattern = qa_config.get("instances_per_pattern", 5)
-    validate = qa_config.get("validate", True)
-    filter_valid = qa_config.get("filter_valid", True)
-    auto_save = qa_config.get("auto_save", True)
-    agent_config = config.get("agent", {})
-    provider = agent_config.get("provider")
-    model = agent_config.get("model")
 
-    # Load schema and tables
-    schema, tables, config, run_id = _load_schema_and_tables()
+    # Update config with CLI options
+    if provider:
+        config.set("agent.provider", provider)
+    if model:
+        config.set("agent.model", model)
+    if run_id:
+        config.set("run_id", run_id)
 
-    # Determine patterns file path
-    if patterns_file:
-        patterns_path = Path(patterns_file)
-    else:
-        qa_dir = get_qa_dir(run_id, config)
-        patterns_path = qa_dir / "kg_paths.json"
-
-    if not patterns_path.exists():
-        click.echo(f"❌ Patterns file not found: {patterns_path}", err=True)
-        click.echo("   Run 'talk2metadata qa path-generate' first.", err=True)
-        raise click.Abort()
-
-    # Determine output path
-    if output_file:
-        qa_output_path = Path(output_file)
-    elif auto_save:
-        qa_dir = get_qa_dir(run_id, config)
-        qa_dir.mkdir(parents=True, exist_ok=True)
-        qa_output_path = qa_dir / "qa_pairs.json"
-    else:
-        qa_output_path = None
+    # Load data
+    loader = CLIDataLoader(config)
+    schema, tables, config, run_id = loader.load_schema_and_tables(
+        schema_file=schema_file, run_id=run_id
+    )
 
     # Load patterns
-    click.echo(f"\n📥 Loading patterns from {patterns_path}...")
+    handler = QAHandler(config)
     try:
-        generator = QAGenerator(
+        patterns, patterns_path = handler.load_patterns(
             schema=schema,
-            tables=tables,
-            provider=provider,
-            model=model,
+            patterns_file=patterns_file,
+            run_id=run_id,
         )
-        patterns = generator.load_patterns(patterns_path)
-        click.echo(f"✓ Loaded {len(patterns)} patterns")
-    except Exception as e:
-        click.echo(f"❌ Failed to load patterns: {e}", err=True)
+        out.success(f"Loaded {len(patterns)} patterns from {patterns_path}")
+    except FileNotFoundError as e:
+        out.error(f"Patterns file not found: {e}")
+        out.info("Run 'talk2metadata qa path-generate' first.")
         raise click.Abort()
 
     # Generate QA pairs
-    click.echo(f"\n🔍 Generating QA pairs...")
-    click.echo(f"   Patterns: {len(patterns)}")
-    click.echo(f"   Instances per pattern: {instances_per_pattern}")
-    click.echo(f"   Validation: {'enabled' if validate else 'disabled'}")
+    out.section("🔍 Generating QA pairs...")
+    out.stats(
+        {
+            "Patterns": len(patterns),
+            "Instances per pattern": instances
+            or config.get("qa_generation.instances_per_pattern", 5),
+            "Validation": (
+                "enabled"
+                if (
+                    validate
+                    if validate is not None
+                    else config.get("qa_generation.validate", True)
+                )
+                else "disabled"
+            ),
+        }
+    )
 
-    try:
-        qa_pairs = generator.generate_qa_from_patterns(
-            patterns=patterns,
-            instances_per_pattern=instances_per_pattern,
-            validate=validate,
-            filter_valid=filter_valid,
+    qa_pairs, output_path = handler.generate_qa_pairs(
+        schema=schema,
+        tables=tables,
+        patterns=patterns,
+        instances_per_pattern=instances,
+        validate=validate,
+        output_file=output,
+        run_id=run_id,
+    )
+
+    out.success(f"Generated {len(qa_pairs)} QA pairs")
+
+    # Show statistics
+    if qa_pairs:
+        stats = handler.get_qa_statistics(qa_pairs)
+        out.section("📊 Statistics:")
+        out.stats(
+            {
+                "Total": stats["total"],
+                "Valid": f"{stats['valid']}/{stats['total']}",
+                "Invalid": stats["invalid"],
+            }
         )
 
-        click.echo(f"\n✓ Generated {len(qa_pairs)} QA pairs")
+        if stats["difficulties"]:
+            out.section("   Difficulty distribution:")
+            out.stats(stats["difficulties"], indent="     ")
 
-        # Show statistics
-        if qa_pairs:
-            valid_count = sum(1 for qa in qa_pairs if qa.is_valid)
-            difficulty_stats = {}
-            for qa in qa_pairs:
-                diff = qa.difficulty or "unknown"
-                difficulty_stats[diff] = difficulty_stats.get(diff, 0) + 1
-
-            click.echo("\n📊 Statistics:")
-            click.echo(f"   Valid: {valid_count}/{len(qa_pairs)}")
-            click.echo("   Difficulty distribution:")
-            for diff, count in sorted(difficulty_stats.items()):
-                click.echo(f"     - {diff}: {count}")
-
-    except Exception as e:
-        click.echo(f"❌ Failed to generate QA pairs: {e}", err=True)
-        logger.exception("QA generation failed")
-        raise click.Abort()
-
-    # Save QA pairs
-    click.echo(f"\n💾 Saving QA pairs...")
-    try:
-        saved_path = generator.save(
-            qa_pairs,
-            output_path=qa_output_path,
-            auto_save=auto_save,
-            run_id=run_id,
-        )
-        click.echo(f"✓ Saved {len(qa_pairs)} QA pairs to {saved_path}")
-    except Exception as e:
-        click.echo(f"❌ Failed to save QA pairs: {e}", err=True)
-        raise click.Abort()
+    if output_path:
+        out.success(f"Saved QA pairs to {output_path}")
 
     # Show sample QA pairs
     if qa_pairs:
-        click.echo("\n📝 Sample QA pairs:")
+        out.section("📝 Sample QA pairs:")
         for i, qa in enumerate(qa_pairs[:3], 1):
-            click.echo(f"\n   {i}. Question: {qa.question}")
+            click.echo(f"\n   {i}. Question: {qa.question[:100]}...")
             click.echo(f"      Answer: {len(qa.answer_row_ids)} row ID(s)")
             click.echo(f"      Difficulty: {qa.difficulty}")
             if qa.is_valid is False:
-                click.echo(f"      ⚠ Invalid: {', '.join(qa.validation_errors)}")
+                out.warning(f"      Invalid: {', '.join(qa.validation_errors)}")
 
-    click.echo("\n✅ QA generation complete!")
-
+    out.section("✅ QA generation complete!")

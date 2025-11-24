@@ -32,9 +32,7 @@ class AnswerExtractor:
         """
         return path_instance.get_answer_row_ids()
 
-    def extract_all(
-        self, path_instances: List[PathInstance]
-    ) -> List[List[Any]]:
+    def extract_all(self, path_instances: List[PathInstance]) -> List[List[Any]]:
         """Extract answers from multiple path instances.
 
         Args:
@@ -44,4 +42,3 @@ class AnswerExtractor:
             List of answer lists (one per instance)
         """
         return [self.extract(pi) for pi in path_instances]
-

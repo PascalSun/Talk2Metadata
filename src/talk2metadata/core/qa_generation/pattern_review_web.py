@@ -66,7 +66,9 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                self.wfile.write(
+                    json.dumps({"success": False, "error": str(e)}).encode("utf-8")
+                )
         else:
             self.send_response(404)
             self.end_headers()
@@ -301,15 +303,15 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
     <div class="container">
         <h1>📝 Path Pattern Review</h1>
         <p class="subtitle">Review and edit path patterns for QA generation</p>
-        
+
         <div id="status" class="status-message"></div>
-        
+
         <div class="toolbar">
             <button class="btn-success" onclick="addPattern()">+ Add Pattern</button>
             <button class="btn-primary" onclick="savePatterns()">💾 Save Changes</button>
             <button class="btn-secondary" onclick="loadPatterns()">🔄 Reload</button>
         </div>
-        
+
         <div id="patterns-list" class="patterns-list"></div>
     </div>
 
@@ -332,35 +334,35 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
         function renderPatterns() {{
             const container = document.getElementById('patterns-list');
             container.innerHTML = '';
-            
+
             patterns.forEach((pattern, index) => {{
                 const card = document.createElement('div');
                 card.className = 'pattern-card' + (editingIndex === index ? ' editing' : '');
-                
+
                 const isEditing = editingIndex === index;
                 const pathStr = pattern.pattern.join(' → ');
-                const pathInput = isEditing ? 
+                const pathInput = isEditing ?
                     '<input type="text" value="' + pattern.pattern.join(' -> ') + '" ' +
                     'onchange="updatePattern(' + index + ', \\'pattern\\', this.value.split(\\' -> \\').map(s => s.trim()))">' :
                     pathStr;
-                
+
                 const semanticInput = isEditing ?
-                    '<textarea onchange="updatePattern(' + index + ', \\'semantic\\', this.value)">' + 
+                    '<textarea onchange="updatePattern(' + index + ', \\'semantic\\', this.value)">' +
                     (pattern.semantic || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>' :
                     (pattern.semantic || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                
+
                 const actions = isEditing ?
                     '<button class="btn-success" onclick="saveEdit(' + index + ')">✓ Save</button>' +
                     '<button class="btn-secondary" onclick="cancelEdit()">✗ Cancel</button>' :
                     '<button class="btn-primary" onclick="editPattern(' + index + ')">✏️ Edit</button>' +
                     '<button class="btn-danger" onclick="deletePattern(' + index + ')">🗑️ Delete</button>';
-                
+
                 const templateInput = isEditing ?
                     '<textarea onchange="updatePattern(' + index + ', \\'question_template\\', this.value)">' +
                     (pattern.question_template || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>' :
-                    '<pre style="margin:0; white-space: pre-wrap;">' + 
+                    '<pre style="margin:0; white-space: pre-wrap;">' +
                     (pattern.question_template || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
-                
+
                 const difficultySelect = isEditing ?
                     '<select onchange="updatePattern(' + index + ', \\'difficulty\\', this.value)">' +
                     '<option value="easy"' + (pattern.difficulty === 'easy' ? ' selected' : '') + '>Easy</option>' +
@@ -368,7 +370,7 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
                     '<option value="hard"' + (pattern.difficulty === 'hard' ? ' selected' : '') + '>Hard</option>' +
                     '</select>' :
                     pattern.difficulty || 'medium';
-                
+
                 const answerTypeSelect = isEditing ?
                     '<select onchange="updatePattern(' + index + ', \\'answer_type\\', this.value)">' +
                     '<option value="single"' + (pattern.answer_type === 'single' ? ' selected' : '') + '>Single</option>' +
@@ -376,13 +378,13 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
                     '<option value="aggregate"' + (pattern.answer_type === 'aggregate' ? ' selected' : '') + '>Aggregate</option>' +
                     '</select>' :
                     pattern.answer_type || 'multiple';
-                
+
                 const descInput = isEditing ?
                     '<textarea onchange="updatePattern(' + index + ', \\'description\\', this.value)">' +
                     (pattern.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>' :
                     (pattern.description || '<em>No description</em>');
-                
-                card.innerHTML = 
+
+                card.innerHTML =
                     '<div class="pattern-header">' +
                         '<div class="pattern-info">' +
                             '<div class="pattern-path">' + pathInput + '</div>' +
@@ -410,7 +412,7 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
                     '</div>';
                 container.appendChild(card);
             }});
-            
+
             // Add "Add Pattern" button
             const addBtn = document.createElement('div');
             addBtn.className = 'add-pattern';
@@ -472,7 +474,7 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
                     total_patterns: patterns.length,
                     patterns: patterns
                 }};
-                
+
                 const response = await fetch('/api/save', {{
                     method: 'POST',
                     headers: {{
@@ -480,7 +482,7 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
                     }},
                     body: JSON.stringify(data)
                 }});
-                
+
                 const result = await response.json();
                 if (result.success) {{
                     showStatus('Patterns saved successfully!', 'success');
@@ -508,8 +510,6 @@ class PatternReviewHandler(BaseHTTPRequestHandler):
 </html>"""
 
 
-
-
 def review_patterns_web(
     patterns: List[PathPattern],
     patterns_file: Path,
@@ -526,8 +526,7 @@ def review_patterns_web(
         List of reviewed patterns (loaded from file after save)
     """
     import socket
-    import time
-    
+
     # Check if port is available
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -536,10 +535,10 @@ def review_patterns_web(
     except OSError:
         click.echo(f"⚠️  Port {port} is already in use, trying {port + 1}")
         port += 1
-    
+
     # Create server instance
     server = HTTPServer(("localhost", port), PatternReviewHandler)
-    
+
     # Load patterns data
     target_table = "wamex_reports"
     if patterns_file.exists():
@@ -556,13 +555,13 @@ def review_patterns_web(
 
     url = f"http://localhost:{port}"
 
-    click.echo(f"\n🌐 Starting pattern review server...")
+    click.echo("\n🌐 Starting pattern review server...")
     click.echo(f"   Server running at: {url}")
-    click.echo(f"   Opening browser...")
-    click.echo(f"\n   Instructions:")
-    click.echo(f"   1. Review and edit patterns in the browser")
-    click.echo(f"   2. Click 'Save Changes' button when done")
-    click.echo(f"   3. Press Enter here to continue")
+    click.echo("   Opening browser...")
+    click.echo("\n   Instructions:")
+    click.echo("   1. Review and edit patterns in the browser")
+    click.echo("   2. Click 'Save Changes' button when done")
+    click.echo("   3. Press Enter here to continue")
 
     # Open browser
     try:
@@ -596,4 +595,3 @@ def review_patterns_web(
     else:
         click.echo("⚠️  Patterns file not found, returning original patterns")
         return patterns
-

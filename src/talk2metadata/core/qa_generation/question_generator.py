@@ -76,9 +76,7 @@ class QuestionGenerator:
 
         for placeholder in placeholders:
             # Try to find value in path nodes
-            value = self._extract_value_for_placeholder(
-                placeholder, path_instance
-            )
+            value = self._extract_value_for_placeholder(placeholder, path_instance)
             if value:
                 values[placeholder] = value
 
@@ -88,7 +86,7 @@ class QuestionGenerator:
             question = question.replace(f"{{{placeholder}}}", str(value))
 
         # Clean up any remaining placeholders
-        question = re.sub(r"\{[^}]+\}", "[信息]", question)
+        question = re.sub(r"\{[^}]+\}", "[information]", question)
 
         return question
 
@@ -107,20 +105,116 @@ class QuestionGenerator:
             response = self.agent.generate(prompt)
             question = response.content.strip()
 
-            # Clean up response (remove quotes if present)
-            if question.startswith('"') and question.endswith('"'):
-                question = question[1:-1]
-            if question.startswith("'") and question.endswith("'"):
-                question = question[1:-1]
+            # Extract just the question, removing any explanations or alternatives
+            question = self._extract_question_from_response(question)
 
-            return question
+            # Clean up response (remove quotes if present)
+            question = question.strip()
+            if question.startswith('"') and question.endswith('"'):
+                question = question[1:-1].strip()
+            if question.startswith("'") and question.endswith("'"):
+                question = question[1:-1].strip()
+
+            # Remove markdown formatting
+            question = re.sub(r"\*\*([^*]+)\*\*", r"\1", question)  # Remove bold
+            question = re.sub(r"\*([^*]+)\*", r"\1", question)  # Remove italic
+            question = re.sub(r"`([^`]+)`", r"\1", question)  # Remove code blocks
+
+            # If response contains multiple questions or explanations, extract the first one
+            # Look for patterns like "Question: ..." or lines starting with question words
+            lines = question.split("\n")
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # Check if line starts with question word or is a question
+                if line and (
+                    line[0].isupper()
+                    and any(
+                        line.startswith(qw)
+                        for qw in [
+                            "What",
+                            "Which",
+                            "Who",
+                            "Where",
+                            "When",
+                            "How",
+                            "Why",
+                        ]
+                    )
+                ):
+                    # Remove prefixes like "Question:", "Q:", etc.
+                    line = re.sub(
+                        r"^(Question|Q|The question):\s*", "", line, flags=re.IGNORECASE
+                    )
+                    question = line
+                    break
+                # Check for quoted questions
+                quoted_match = re.search(r'["\']([^"\']+\?)["\']', line)
+                if quoted_match:
+                    question = quoted_match.group(1)
+                    break
+
+            return question.strip()
         except Exception as e:
-            logger.warning(f"LLM question generation failed: {e}, falling back to template")
+            logger.warning(
+                f"LLM question generation failed: {e}, falling back to template"
+            )
             return self._generate_from_template(path_instance)
 
-    def _build_question_generation_prompt(
-        self, path_instance: PathInstance
-    ) -> str:
+    def _extract_question_from_response(self, response: str) -> str:
+        """Extract the actual question from LLM response, removing explanations.
+
+        Args:
+            response: Raw LLM response
+
+        Returns:
+            Clean question string
+        """
+        # Remove common prefixes
+        response = re.sub(
+            r"^(Based on|Given|Here|The question|Question):\s*",
+            "",
+            response,
+            flags=re.IGNORECASE,
+        )
+
+        # Split by common separators
+        parts = re.split(r"\n\n|\n---|\n\*\*", response)
+
+        # Look for the first part that looks like a question
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+
+            # Remove markdown and formatting
+            part = re.sub(r"\*\*([^*]+)\*\*", r"\1", part)
+            part = re.sub(r"\*([^*]+)\*", r"\1", part)
+            part = re.sub(r"`([^`]+)`", r"\1", part)
+
+            # Check if it's a question (ends with ? or starts with question word)
+            if part.endswith("?") or any(
+                part.strip().startswith(qw)
+                for qw in ["What", "Which", "Who", "Where", "When", "How", "Why"]
+            ):
+                # Extract quoted text if present
+                quoted_match = re.search(r'["\']([^"\']+\?)["\']', part)
+                if quoted_match:
+                    return quoted_match.group(1)
+                # Otherwise return the part itself
+                return part.split("\n")[0].strip()
+
+        # If no clear question found, return first line
+        first_line = response.split("\n")[0].strip()
+        # Remove quotes if present
+        if (first_line.startswith('"') and first_line.endswith('"')) or (
+            first_line.startswith("'") and first_line.endswith("'")
+        ):
+            first_line = first_line[1:-1]
+        return first_line.strip()
+
+    def _build_question_generation_prompt(self, path_instance: PathInstance) -> str:
         """Build prompt for LLM to generate question.
 
         Args:
@@ -132,9 +226,7 @@ class QuestionGenerator:
         # Extract key information from path
         path_info = []
         for i, node in enumerate(path_instance.nodes):
-            path_info.append(
-                f"  {i+1}. {node.table} (row_id: {node.row_id})"
-            )
+            path_info.append(f"  {i+1}. {node.table} (row_id: {node.row_id})")
 
         # Extract key attribute values
         key_values = self._extract_key_values(path_instance)
@@ -154,16 +246,24 @@ Key Attribute Values:
 
 ## Task
 
-Generate a natural, conversational question in Chinese that:
+Generate a single, natural, conversational question in English that:
 1. Reflects the semantic meaning of this path
 2. Incorporates the key attribute values naturally
 3. Asks about the target table ({path_instance.pattern.pattern[-1]})
 4. Is clear and specific enough to be answerable
 
+## Important Instructions
+
+- Return ONLY the question itself, nothing else
+- Do not include any explanations, alternatives, or additional text
+- Do not use markdown formatting or quotes
+- The question should be a complete, natural English sentence
+- Start directly with the question words (What, Which, Who, etc.)
+
 ## Example
 
-If the path is ["historic_titles", "wamex_reports"] and historic_title is "Annual Report 1969-1970", 
-the question might be: "哪些报告的标题是'Annual Report 1969-1970'？"
+If the path is ["historic_titles", "wamex_reports"] and historic_title is "Annual Report 1969-1970",
+the question should be: Which reports have the title "Annual Report 1969-1970"?
 
 Now generate the question for this path:"""
 
@@ -206,17 +306,13 @@ Now generate the question for this path:"""
                         return str(value)[:100]  # Truncate long values
 
                 # Partial match (e.g., "historic_title" matches "HistoricTitle")
-                if placeholder_lower.replace("_", "") in col_lower.replace(
-                    "_", ""
-                ):
+                if placeholder_lower.replace("_", "") in col_lower.replace("_", ""):
                     if value and not pd.isna(value):
                         return str(value)[:100]
 
         return None
 
-    def _extract_key_values(
-        self, path_instance: PathInstance
-    ) -> Dict[str, str]:
+    def _extract_key_values(self, path_instance: PathInstance) -> Dict[str, str]:
         """Extract key attribute values from path instance.
 
         Args:
@@ -254,9 +350,11 @@ Now generate the question for this path:"""
             Simple question string
         """
         pattern = path_instance.pattern.pattern
+        target_table = pattern[-1]
         if len(pattern) == 2:
             source_table = pattern[0]
-            return f"哪些{pattern[1]}与{source_table}相关？"
+            return f"Which {target_table} records are related to {source_table}?"
         else:
-            return f"哪些{pattern[-1]}符合以下路径：{' -> '.join(pattern)}？"
-
+            return (
+                f"Which {target_table} records match the path: {' -> '.join(pattern)}?"
+            )

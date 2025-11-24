@@ -6,8 +6,8 @@ import json
 from typing import Dict, List, Optional
 
 from talk2metadata.agent import AgentWrapper
-from talk2metadata.core.schema import SchemaMetadata
 from talk2metadata.core.qa_generation.patterns import PathPattern
+from talk2metadata.core.schema import SchemaMetadata
 from talk2metadata.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -165,8 +165,8 @@ Generate {num_patterns} meaningful query path patterns. Each path pattern should
 
 Return a JSON array, where each element is a path pattern object with:
 - `pattern`: Array of table names, e.g., ["historic_titles", "wamex_reports"]
-- `semantic`: Semantic description of what this path represents (in Chinese or English)
-- `question_template`: Question template with {{placeholder}} for values, e.g., "哪些报告的标题包含'{{historic_title}}'？"
+- `semantic`: Semantic description of what this path represents (in English)
+- `question_template`: Question template with {{placeholder}} for values, in English, e.g., "Which reports have the title '{{historic_title}}'?"
 - `answer_type`: "single" (one answer) | "multiple" (multiple answers) | "aggregate" (aggregated answer)
 - `difficulty`: "easy" | "medium" | "hard"
 - `description`: Optional additional description
@@ -177,16 +177,16 @@ Return a JSON array, where each element is a path pattern object with:
 [
   {{
     "pattern": ["historic_titles", "wamex_reports"],
-    "semantic": "通过历史标题查找报告",
-    "question_template": "哪些报告的标题包含'{{historic_title}}'？",
+    "semantic": "Find reports by historic title",
+    "question_template": "Which reports have the title '{{historic_title}}'?",
     "answer_type": "multiple",
     "difficulty": "easy",
     "description": "Simple query through historic titles"
   }},
   {{
     "pattern": ["abstracts", "wamex_reports"],
-    "semantic": "通过摘要内容查找报告",
-    "question_template": "哪些报告包含关于'{{topic}}'的摘要？",
+    "semantic": "Find reports by abstract content",
+    "question_template": "Which reports contain abstracts about '{{topic}}'?",
     "answer_type": "multiple",
     "difficulty": "medium",
     "description": "Query through abstract content"
@@ -234,9 +234,7 @@ Now generate {num_patterns} diverse and meaningful path patterns:"""
             logger.debug(f"Response content: {response[:500]}")
             return []
 
-    def _generate_fallback_patterns(
-        self, schema: SchemaMetadata
-    ) -> List[PathPattern]:
+    def _generate_fallback_patterns(self, schema: SchemaMetadata) -> List[PathPattern]:
         """Generate fallback patterns when LLM fails.
 
         Args:
@@ -256,9 +254,7 @@ Now generate {num_patterns} diverse and meaningful path patterns:"""
                 continue
 
             # Check if table has ANumber/Anumber column
-            has_anumber = (
-                "ANumber" in meta.columns or "Anumber" in meta.columns
-            )
+            has_anumber = "ANumber" in meta.columns or "Anumber" in meta.columns
 
             if has_anumber:
                 patterns.append(
@@ -272,4 +268,3 @@ Now generate {num_patterns} diverse and meaningful path patterns:"""
                 )
 
         return patterns[:10]  # Limit to 10 fallback patterns
-

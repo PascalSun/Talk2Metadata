@@ -1,31 +1,22 @@
-"""Index command for building search index."""
+"""Index command - refactored with modular structure."""
 
 from __future__ import annotations
 
-import pickle
 from pathlib import Path
 
 import click
 
 # Ensure modes are registered
 import talk2metadata.core.modes  # noqa: F401
-from talk2metadata.core.modes import (  # noqa: F401
-    Indexer,
-    get_active_mode,
-    get_mode_indexer_config,
-    get_registry,
-)
-from talk2metadata.core.schema.schema import SchemaMetadata
+from talk2metadata.cli.decorators import handle_errors, with_run_id
+from talk2metadata.cli.handlers import IndexHandler
+from talk2metadata.cli.output import OutputFormatter
+from talk2metadata.cli.utils import CLIDataLoader
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
-from talk2metadata.utils.paths import (
-    find_schema_file,
-    get_indexes_dir,
-    get_metadata_dir,
-    get_processed_dir,
-)
 
 logger = get_logger(__name__)
+out = OutputFormatter()
 
 
 @click.command(name="index")
@@ -58,8 +49,8 @@ logger = get_logger(__name__)
 @click.option(
     "--batch-size",
     type=int,
-    default=32,
-    help="Batch size for embedding generation",
+    default=None,
+    help="Batch size for embedding generation (default: from config)",
 )
 @click.option(
     "--mode",
@@ -73,9 +64,19 @@ logger = get_logger(__name__)
     default=False,
     help="Build index for all enabled modes",
 )
+@with_run_id
+@handle_errors
 @click.pass_context
 def index_cmd(
-    ctx, metadata_path, tables_path, output_dir, model_name, batch_size, mode, all_modes
+    ctx,
+    metadata_path,
+    tables_path,
+    output_dir,
+    model_name,
+    batch_size,
+    mode,
+    all_modes,
+    run_id,
 ):
     """Build search index from ingested data.
 
@@ -95,149 +96,126 @@ def index_cmd(
 
         # Specify custom paths
         talk2metadata index --metadata schema.json --tables tables.pkl
+
+        # Use specific run ID
+        talk2metadata index --run-id my_run
     """
     config = get_config()
-    run_id = config.get("run_id")
 
-    # 1. Load schema metadata
-    if not metadata_path:
-        metadata_dir = get_metadata_dir(run_id, config)
-        metadata_path = find_schema_file(metadata_dir)
+    # Update config with CLI options
+    if run_id:
+        config.set("run_id", run_id)
 
-    click.echo(f"📄 Loading schema metadata from {metadata_path}")
+    # Read output_dir from config if not provided via CLI
+    if output_dir is None:
+        output_dir_str = config.get("data.indexes_dir")
+        output_dir = Path(output_dir_str) if output_dir_str else None
 
-    if not Path(metadata_path).exists():
-        click.echo(
-            f"❌ Metadata not found at {metadata_path}\n"
-            "   Please run 'talk2metadata ingest' first.",
-            err=True,
-        )
-        raise click.Abort()
+    # Initialize handler
+    handler = IndexHandler(config)
 
+    # 1. Load schema metadata (reads from config if metadata_path is None)
+    loader = CLIDataLoader(config)
+    out.section("📄 Loading schema metadata...")
+    schema_metadata = loader.load_schema(schema_file=metadata_path, run_id=run_id)
+
+    # 2. Load tables (reads from config if tables_path is None)
+    out.section("📥 Loading tables...")
     try:
-        schema_metadata = SchemaMetadata.load(metadata_path)
-        click.echo("✓ Loaded schema:")
-        click.echo(f"   - Target table: {schema_metadata.target_table}")
-        click.echo(f"   - Tables: {len(schema_metadata.tables)}")
-        click.echo(f"   - Foreign keys: {len(schema_metadata.foreign_keys)}")
-    except Exception as e:
-        click.echo(f"❌ Failed to load metadata: {e}", err=True)
-        raise click.Abort()
-
-    # 2. Load tables
-    if not tables_path:
-        processed_dir = get_processed_dir(run_id, config)
-        tables_path = processed_dir / "tables.pkl"
-
-    click.echo(f"📥 Loading tables from {tables_path}")
-
-    if not Path(tables_path).exists():
-        click.echo(
-            f"❌ Tables not found at {tables_path}\n"
-            "   Please run 'talk2metadata ingest' first.",
-            err=True,
+        tables = handler.load_tables_from_pickle(
+            tables_path=Path(tables_path) if tables_path else None,
+            run_id=run_id,
         )
+        out.success(f"Loaded {len(tables)} tables")
+    except FileNotFoundError as e:
+        out.error(f"Tables not found: {e}")
+        out.info("Please run 'talk2metadata ingest' first.")
         raise click.Abort()
 
+    # 3. Determine modes to build (reads from config if mode is None)
     try:
-        with open(tables_path, "rb") as f:
-            tables = pickle.load(f)
-        click.echo(f"✓ Loaded {len(tables)} tables")
-    except Exception as e:
-        click.echo(f"❌ Failed to load tables: {e}", err=True)
-        raise click.Abort()
-
-    # 3. Determine modes to build
-    registry = get_registry()
-    if all_modes:
-        modes_to_build = registry.get_all_enabled()
-        if not modes_to_build:
-            click.echo("❌ No enabled modes found", err=True)
-            raise click.Abort()
-        click.echo(
-            f"\n📋 Building indexes for {len(modes_to_build)} mode(s): {', '.join(modes_to_build)}"
+        modes_to_build = handler.determine_modes_to_build(
+            mode=mode, all_modes=all_modes
         )
-    else:
-        # Use specified mode or active mode from config
-        if mode:
-            active_mode = mode
-        else:
-            active_mode = get_active_mode() or "record_embedding"
-
-        if not registry.get(active_mode):
-            click.echo(f"❌ Mode '{active_mode}' not found", err=True)
-            click.echo(f"   Available modes: {', '.join(registry.get_all_enabled())}")
-            raise click.Abort()
-
-        modes_to_build = [active_mode]
+        if len(modes_to_build) > 1:
+            out.section(
+                f"📋 Building indexes for {len(modes_to_build)} mode(s): {', '.join(modes_to_build)}"
+            )
+    except ValueError as e:
+        out.error(str(e))
+        raise click.Abort()
 
     # 4. Build indexes for each mode
-    base_index_dir = Path(output_dir) if output_dir else get_indexes_dir(run_id, config)
+    from talk2metadata.utils.paths import find_schema_file, get_metadata_dir
+
+    metadata_dir = get_metadata_dir(run_id, config)
+    schema_path = (
+        Path(metadata_path) if metadata_path else find_schema_file(metadata_dir)
+    )
 
     for mode_name in modes_to_build:
-        mode_info = registry.get(mode_name)
-        if not mode_info or not mode_info.enabled:
-            click.echo(f"⚠️  Skipping disabled mode: {mode_name}")
-            continue
-
-        click.echo(f"\n{'='*60}")
-        click.echo(f"🔨 Building index for mode: {mode_name}")
-        click.echo(f"   Description: {mode_info.description}")
-        click.echo(f"{'='*60}")
-
-        # Initialize indexer for this mode (use mode-specific config)
-        try:
-            mode_indexer_config = get_mode_indexer_config(mode_name)
-            # CLI args override config
-            indexer = Indexer(
-                model_name=model_name or mode_indexer_config.get("model_name"),
-                device=mode_indexer_config.get("device"),
-                batch_size=batch_size or mode_indexer_config.get("batch_size", 32),
-                normalize=mode_indexer_config.get("normalize", True),
-            )
-        except Exception as e:
-            click.echo(
-                f"❌ Failed to initialize indexer for {mode_name}: {e}", err=True
-            )
-            continue
+        out.section(f"\n{'='*60}")
+        out.section(f"🔨 Building index for mode: {mode_name}")
+        mode_info = handler.registry.get(mode_name)
+        if mode_info:
+            out.info(f"Description: {mode_info.description}")
+        out.section(f"{'='*60}")
 
         # Build index
+        # Note: build_index_for_mode already reads from config if model_name/batch_size are None
         try:
-            table_indices = indexer.build_index(tables, schema_metadata)
-            click.echo(f"✓ Index built successfully for {mode_name}:")
-            for table_name, (idx, records) in table_indices.items():
-                click.echo(
-                    f"   - {table_name}: {idx.ntotal} vectors, {len(records)} records"
+            table_indices, indexer = handler.build_index_for_mode(
+                mode_name=mode_name,
+                tables=tables,
+                schema_metadata=schema_metadata,
+                model_name=model_name,  # None = read from config
+                batch_size=batch_size,  # None = read from config
+            )
+
+            out.success(f"Index built successfully for {mode_name}:")
+            stats = handler.get_index_stats(table_indices)
+            for table_name, table_stats in stats.items():
+                out.stats(
+                    {
+                        f"{table_name}": f"{table_stats['vectors']} vectors, {table_stats['records']} records"
+                    },
+                    indent="   ",
                 )
         except Exception as e:
-            click.echo(f"❌ Index building failed for {mode_name}: {e}", err=True)
+            out.error(f"Index building failed for {mode_name}: {e}")
+            logger.exception(f"Failed to build index for {mode_name}")
             continue
 
-        # Save index (mode-specific directory)
-        mode_index_dir = base_index_dir / mode_name
-        mode_index_dir.mkdir(parents=True, exist_ok=True)
-
-        click.echo(f"\n💾 Saving index to {mode_index_dir}")
+        # Save index
+        out.section(f"💾 Saving index for {mode_name}...")
         try:
-            indexer.save_multi_table_index(table_indices, mode_index_dir)
-            click.echo(f"✓ Index saved for {mode_name}")
-
-            # Save schema metadata
-            metadata_path_obj = Path(metadata_path)
-            schema_copy_path = mode_index_dir / "schema_metadata.json"
-            import shutil
-
-            shutil.copy(metadata_path_obj, schema_copy_path)
+            mode_index_dir = handler.save_index_for_mode(
+                mode_name=mode_name,
+                table_indices=table_indices,
+                indexer=indexer,
+                schema_metadata_path=schema_path,
+                output_dir=output_dir,  # Already Path or None from config
+                run_id=run_id,
+            )
+            out.success(f"Index saved to {mode_index_dir}")
         except Exception as e:
-            click.echo(f"❌ Failed to save index for {mode_name}: {e}", err=True)
+            out.error(f"Failed to save index for {mode_name}: {e}")
 
-    click.echo(f"\n{'='*60}")
-    click.echo("✅ Indexing complete!")
+    # Success
+    out.section(f"{'='*60}")
+    out.section("✅ Indexing complete!")
+
     if len(modes_to_build) == 1:
-        click.echo(
-            f"\nNext step: Run 'talk2metadata search \"your query\"' to search using {modes_to_build[0]}"
+        out.next_steps(
+            "Next step:",
+            [
+                f"Run 'talk2metadata search \"your query\"' to search using {modes_to_build[0]}"
+            ],
         )
     else:
-        click.echo(
-            "\nNext step: Run 'talk2metadata search \"your query\" --compare' to compare all modes"
+        out.next_steps(
+            "Next step:",
+            [
+                "Run 'talk2metadata search \"your query\" --compare' to compare all modes"
+            ],
         )

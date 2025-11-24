@@ -14,7 +14,9 @@ class QAPair:
 
     question: str  # Natural language question
     answer_row_ids: List[Any]  # List of target table row IDs (the answer)
-    path_instance: Optional[PathInstance] = None  # The path instance that generated this QA
+    path_instance: Optional[PathInstance] = (
+        None  # The path instance that generated this QA
+    )
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional metadata
 
     # Quality metrics
@@ -42,4 +44,3 @@ class QAPair:
             "validation_errors": self.validation_errors,
             "metadata": self.metadata,
         }
-

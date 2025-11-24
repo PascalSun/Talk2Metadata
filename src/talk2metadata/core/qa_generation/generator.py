@@ -264,11 +264,14 @@ class QAGenerator:
         if output_path is None and auto_save:
             # Auto-save to qa/qa_pairs.json in run directory
             from talk2metadata.utils.paths import get_qa_dir
+
             qa_dir = get_qa_dir(run_id)
             qa_dir.mkdir(parents=True, exist_ok=True)
             output_path = qa_dir / "qa_pairs.json"
         elif output_path is None:
-            raise ValueError("Either output_path must be provided or auto_save must be True")
+            raise ValueError(
+                "Either output_path must be provided or auto_save must be True"
+            )
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -349,4 +352,3 @@ class QAGenerator:
         """
         schema = SchemaMetadata.load(schema_path)
         return cls(schema, tables, agent=agent, provider=provider, model=model)
-
