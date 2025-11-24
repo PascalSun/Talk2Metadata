@@ -9,8 +9,8 @@ from pathlib import Path
 
 import click
 
-from talk2metadata.core.hybrid_retriever import HybridRetriever
-from talk2metadata.core.retriever import Retriever
+from talk2metadata.core.retriever.hybrid_retriever import HybridRetriever
+from talk2metadata.core.retriever.retriever import Retriever
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 from talk2metadata.utils.paths import get_indexes_dir

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-from talk2metadata.core.schema import SchemaMetadata
+from talk2metadata.core.schema.schema import SchemaMetadata
 from talk2metadata.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -61,8 +61,14 @@ def generate_html_visualization(
 
     # Calculate statistics
     total_rows = sum(t.row_count for t in schema.tables.values())
-    avg_coverage = sum(fk.coverage for fk in schema.foreign_keys) / len(schema.foreign_keys) if schema.foreign_keys else 0
-    target_incoming_fks = len([fk for fk in schema.foreign_keys if fk.parent_table == schema.target_table])
+    avg_coverage = (
+        sum(fk.coverage for fk in schema.foreign_keys) / len(schema.foreign_keys)
+        if schema.foreign_keys
+        else 0
+    )
+    target_incoming_fks = len(
+        [fk for fk in schema.foreign_keys if fk.parent_table == schema.target_table]
+    )
 
     # Generate HTML
     html_content = f"""<!DOCTYPE html>
@@ -777,7 +783,9 @@ def _generate_table_cards(schema: SchemaMetadata) -> str:
     cards = []
 
     # Target table first
-    table_names = [schema.target_table] + sorted([t for t in schema.tables.keys() if t != schema.target_table])
+    table_names = [schema.target_table] + sorted(
+        [t for t in schema.tables.keys() if t != schema.target_table]
+    )
 
     for table_name in table_names:
         if table_name not in schema.tables:
@@ -787,8 +795,12 @@ def _generate_table_cards(schema: SchemaMetadata) -> str:
         is_target = table_name == schema.target_table
 
         # Get foreign keys
-        outgoing_fks = [fk for fk in schema.foreign_keys if fk.child_table == table_name]
-        incoming_fks = [fk for fk in schema.foreign_keys if fk.parent_table == table_name]
+        outgoing_fks = [
+            fk for fk in schema.foreign_keys if fk.child_table == table_name
+        ]
+        incoming_fks = [
+            fk for fk in schema.foreign_keys if fk.parent_table == table_name
+        ]
 
         # Build FK HTML
         fk_html = ""
@@ -797,30 +809,35 @@ def _generate_table_cards(schema: SchemaMetadata) -> str:
             for fk in outgoing_fks:
                 coverage_class = "high" if fk.coverage >= 0.9 else "low"
                 item_class = "low-coverage" if fk.coverage < 0.9 else ""
-                fk_html += f'''
+                fk_html += f"""
                     <div class="fk-item {item_class}">
                         <span>{fk.child_column} → {fk.parent_table}.{fk.parent_column}</span>
                         <span class="coverage {coverage_class}">{fk.coverage:.1%}</span>
                     </div>
-                '''
+                """
             fk_html += "</div>"
 
         if incoming_fks:
             fk_html += '<div class="fk-section"><div class="fk-title">Incoming Foreign Keys</div>'
             for fk in incoming_fks:
                 coverage_class = "high" if fk.coverage >= 0.9 else "low"
-                fk_html += f'''
+                fk_html += f"""
                     <div class="fk-item">
                         <span>{fk.child_table}.{fk.child_column} → {fk.parent_column}</span>
                         <span class="coverage {coverage_class}">{fk.coverage:.1%}</span>
                     </div>
-                '''
+                """
             fk_html += "</div>"
 
         # Columns as tags
-        columns_html = "".join([f'<span class="column-tag">{col}</span>' for col in table_meta.columns.keys()])
+        columns_html = "".join(
+            [
+                f'<span class="column-tag">{col}</span>'
+                for col in table_meta.columns.keys()
+            ]
+        )
 
-        card = f'''
+        card = f"""
             <div class="table-card {'target' if is_target else ''}" id="card-{table_name}">
                 <div class="card-header">
                     <div class="card-title">{table_name}</div>
@@ -846,7 +863,7 @@ def _generate_table_cards(schema: SchemaMetadata) -> str:
                     <div class="columns-text">{columns_html}</div>
                 </div>
             </div>
-        '''
+        """
         cards.append(card)
 
     return "\n".join(cards)

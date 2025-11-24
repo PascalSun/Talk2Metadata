@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from rank_bm25 import BM25Okapi
 
-from talk2metadata.core.retriever import Retriever, SearchResult
+from talk2metadata.core.retriever.retriever import Retriever, SearchResult
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 from talk2metadata.utils.timing import TimingContext, timed

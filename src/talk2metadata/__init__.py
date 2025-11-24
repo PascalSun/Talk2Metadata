@@ -11,12 +11,13 @@ from talk2metadata.connectors import (
 )
 
 # Core modules
-from talk2metadata.core.indexer import Indexer
-from talk2metadata.core.retriever import Retriever, SearchResult
-from talk2metadata.core.schema import (
+from talk2metadata.core import (
     ForeignKey,
+    Indexer,
+    Retriever,
     SchemaDetector,
     SchemaMetadata,
+    SearchResult,
     TableMetadata,
 )
 
@@ -29,7 +30,7 @@ def __getattr__(name):
     """Lazy import for optional modules."""
     if name == "HybridRetriever":
         try:
-            from talk2metadata.core.hybrid_retriever import HybridRetriever
+            from talk2metadata.core import HybridRetriever
 
             return HybridRetriever
         except ImportError as e:
@@ -39,7 +40,7 @@ def __getattr__(name):
             ) from e
     elif name == "BM25Index":
         try:
-            from talk2metadata.core.hybrid_retriever import BM25Index
+            from talk2metadata.core import BM25Index
 
             return BM25Index
         except ImportError as e:

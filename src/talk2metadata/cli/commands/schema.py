@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 
 from talk2metadata.core.schema import SchemaMetadata
-from talk2metadata.core.schema_viz import (
+from talk2metadata.core.schema.schema_viz import (
     export_schema_for_review,
     generate_html_visualization,
     validate_schema,

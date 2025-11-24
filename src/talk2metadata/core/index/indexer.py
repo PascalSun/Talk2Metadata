@@ -12,7 +12,7 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-from talk2metadata.core.schema import SchemaMetadata
+from talk2metadata.core.schema.schema import SchemaMetadata
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 

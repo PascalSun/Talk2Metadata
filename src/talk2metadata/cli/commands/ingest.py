@@ -8,8 +8,11 @@ from pathlib import Path
 import click
 
 from talk2metadata.connectors import ConnectorFactory
-from talk2metadata.core.schema import SchemaDetector
-from talk2metadata.core.schema_viz import generate_html_visualization, validate_schema
+from talk2metadata.core.schema.schema import SchemaDetector
+from talk2metadata.core.schema.schema_viz import (
+    generate_html_visualization,
+    validate_schema,
+)
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 from talk2metadata.utils.paths import get_metadata_dir, get_processed_dir

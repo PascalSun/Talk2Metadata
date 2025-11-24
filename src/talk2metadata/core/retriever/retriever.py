@@ -94,7 +94,7 @@ class Retriever:
             ...     "data/indexes/records.pkl"
             ... )
         """
-        from talk2metadata.core.indexer import Indexer
+        from talk2metadata.core.index.indexer import Indexer
 
         with TimingContext("index_load"):
             index, records = Indexer.load_index(index_path, records_path)

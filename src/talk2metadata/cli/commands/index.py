@@ -7,8 +7,8 @@ from pathlib import Path
 
 import click
 
-from talk2metadata.core.indexer import Indexer
-from talk2metadata.core.schema import SchemaMetadata
+from talk2metadata.core.index.indexer import Indexer
+from talk2metadata.core.schema.schema import SchemaMetadata
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 from talk2metadata.utils.paths import (
