@@ -1,14 +1,12 @@
 """Core modules for Talk2Metadata."""
 
-# Re-export all public APIs for backward compatibility
-from talk2metadata.core.index import Indexer
-from talk2metadata.core.retriever import (
-    BM25Index,
-    HybridRetriever,
-    HybridSearchResult,
-    Retriever,
-    SearchResult,
+# Re-export all public APIs
+from talk2metadata.core.modes import (
+    Indexer,
+    RecordVoter,
+    RecordVoteSearchResult,
 )
+from talk2metadata.core.modes.record_embedding.search_result import SearchResult
 from talk2metadata.core.schema import (
     ForeignKey,
     SchemaDetector,
@@ -28,12 +26,10 @@ __all__ = [
     "export_schema_for_review",
     "generate_html_visualization",
     "validate_schema",
-    # Index
+    # Index (from modes)
     "Indexer",
-    # Retriever
-    "BM25Index",
-    "HybridRetriever",
-    "HybridSearchResult",
-    "Retriever",
+    # Retriever (from modes)
+    "RecordVoteSearchResult",
+    "RecordVoter",
     "SearchResult",
 ]

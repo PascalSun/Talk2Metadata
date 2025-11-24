@@ -69,6 +69,29 @@ class Config:
                 "model": "gpt-4o-mini",
                 "temperature": 0.0,
             },
+            "modes": {
+                # Mode-specific configurations
+                "record_embedding": {
+                    "indexer": {
+                        "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+                        "device": None,
+                        "batch_size": 32,
+                        "normalize": True,
+                    },
+                    "retriever": {
+                        "top_k": 5,
+                        "similarity_metric": "cosine",
+                        "per_table_top_k": 5,
+                        "use_reranking": False,
+                    },
+                },
+                # Global mode settings
+                "active": "record_embedding",  # Active mode name
+                "compare": {  # Comparison mode settings
+                    "enabled": False,  # Enable comparison mode
+                    "modes": [],  # List of modes to compare (empty = all enabled)
+                },
+            },
         }
 
     @classmethod

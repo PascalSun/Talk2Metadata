@@ -7,7 +7,14 @@ from pathlib import Path
 
 import click
 
-from talk2metadata.core.index.indexer import Indexer
+# Ensure modes are registered
+import talk2metadata.core.modes  # noqa: F401
+from talk2metadata.core.modes import (  # noqa: F401
+    Indexer,
+    get_active_mode,
+    get_mode_indexer_config,
+    get_registry,
+)
 from talk2metadata.core.schema.schema import SchemaMetadata
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
@@ -55,33 +62,39 @@ logger = get_logger(__name__)
     help="Batch size for embedding generation",
 )
 @click.option(
-    "--hybrid",
+    "--mode",
+    type=str,
+    default=None,
+    help="Indexing mode (default: from config or 'record_embedding')",
+)
+@click.option(
+    "--all-modes",
     is_flag=True,
     default=False,
-    help="Build hybrid index (FAISS + BM25) for better search quality",
+    help="Build index for all enabled modes",
 )
 @click.pass_context
 def index_cmd(
-    ctx, metadata_path, tables_path, output_dir, model_name, batch_size, hybrid
+    ctx, metadata_path, tables_path, output_dir, model_name, batch_size, mode, all_modes
 ):
     """Build search index from ingested data.
 
-    This command:
-    1. Loads tables and schema metadata
-    2. Generates denormalized text for target table rows
-    3. Creates embeddings using sentence-transformers
-    4. Builds FAISS index for fast similarity search
+    This command builds indexes using the specified mode (or active mode from config).
+    Use --all-modes to build indexes for all enabled modes.
 
     \b
     Examples:
-        # Build index with defaults
+        # Build index with active mode (from config)
         talk2metadata index
+
+        # Build index with specific mode
+        talk2metadata index --mode record_embedding
+
+        # Build indexes for all enabled modes
+        talk2metadata index --all-modes
 
         # Specify custom paths
         talk2metadata index --metadata schema.json --tables tables.pkl
-
-        # Use different embedding model
-        talk2metadata index --model sentence-transformers/all-mpnet-base-v2
     """
     config = get_config()
     run_id = config.get("run_id")
@@ -134,88 +147,97 @@ def index_cmd(
         click.echo(f"❌ Failed to load tables: {e}", err=True)
         raise click.Abort()
 
-    # 3. Initialize indexer
-    click.echo("\n🤖 Initializing indexer...")
-    if model_name:
-        click.echo(f"   Model: {model_name}")
-
-    try:
-        indexer = Indexer(
-            model_name=model_name,
-            batch_size=batch_size,
+    # 3. Determine modes to build
+    registry = get_registry()
+    if all_modes:
+        modes_to_build = registry.get_all_enabled()
+        if not modes_to_build:
+            click.echo("❌ No enabled modes found", err=True)
+            raise click.Abort()
+        click.echo(
+            f"\n📋 Building indexes for {len(modes_to_build)} mode(s): {', '.join(modes_to_build)}"
         )
-    except Exception as e:
-        click.echo(f"❌ Failed to initialize indexer: {e}", err=True)
-        raise click.Abort()
-
-    # 4. Build index
-    if hybrid:
-        click.echo("\n🔨 Building hybrid search index (FAISS + BM25)...")
     else:
-        click.echo("\n🔨 Building search index...")
-    click.echo("   This may take a while...")
-
-    try:
-        if hybrid:
-            # Build both FAISS and BM25 indexes
-            index, records, texts = indexer.build_index(
-                tables, schema_metadata, return_texts=True
-            )
-            click.echo("✓ FAISS index built successfully:")
-            click.echo(f"   - Vectors: {index.ntotal}")
-            click.echo(f"   - Dimension: {index.d}")
-            click.echo(f"   - Records: {len(records)}")
-
-            # Build BM25 index
-            click.echo("\n🔨 Building BM25 index...")
-            from talk2metadata.core.hybrid_retriever import BM25Index
-
-            bm25_index = BM25Index(texts)
-            click.echo("✓ BM25 index built successfully")
+        # Use specified mode or active mode from config
+        if mode:
+            active_mode = mode
         else:
-            index, records = indexer.build_index(tables, schema_metadata)
-            click.echo("✓ Index built successfully:")
-            click.echo(f"   - Vectors: {index.ntotal}")
-            click.echo(f"   - Dimension: {index.d}")
-            click.echo(f"   - Records: {len(records)}")
-            bm25_index = None
-    except Exception as e:
-        click.echo(f"❌ Index building failed: {e}", err=True)
-        raise click.Abort()
+            active_mode = get_active_mode() or "record_embedding"
 
-    # 5. Save index
-    if output_dir:
-        index_dir = Path(output_dir)
-    else:
-        index_dir = get_indexes_dir(run_id, config)
+        if not registry.get(active_mode):
+            click.echo(f"❌ Mode '{active_mode}' not found", err=True)
+            click.echo(f"   Available modes: {', '.join(registry.get_all_enabled())}")
+            raise click.Abort()
 
-    index_dir.mkdir(parents=True, exist_ok=True)
+        modes_to_build = [active_mode]
 
-    index_path = index_dir / "index.faiss"
-    records_path = index_dir / "records.pkl"
+    # 4. Build indexes for each mode
+    base_index_dir = Path(output_dir) if output_dir else get_indexes_dir(run_id, config)
 
-    click.echo(f"\n💾 Saving index to {index_dir}")
+    for mode_name in modes_to_build:
+        mode_info = registry.get(mode_name)
+        if not mode_info or not mode_info.enabled:
+            click.echo(f"⚠️  Skipping disabled mode: {mode_name}")
+            continue
 
-    try:
-        indexer.save_index(index, records, index_path, records_path)
-        click.echo("✓ Index saved:")
-        click.echo(f"   - {index_path}")
-        click.echo(f"   - {records_path}")
+        click.echo(f"\n{'='*60}")
+        click.echo(f"🔨 Building index for mode: {mode_name}")
+        click.echo(f"   Description: {mode_info.description}")
+        click.echo(f"{'='*60}")
 
-        if hybrid and bm25_index:
-            bm25_path = index_dir / "bm25.pkl"
-            bm25_index.save(bm25_path)
-            click.echo(f"   - {bm25_path}")
-    except Exception as e:
-        click.echo(f"❌ Failed to save index: {e}", err=True)
-        raise click.Abort()
+        # Initialize indexer for this mode (use mode-specific config)
+        try:
+            mode_indexer_config = get_mode_indexer_config(mode_name)
+            # CLI args override config
+            indexer = Indexer(
+                model_name=model_name or mode_indexer_config.get("model_name"),
+                device=mode_indexer_config.get("device"),
+                batch_size=batch_size or mode_indexer_config.get("batch_size", 32),
+                normalize=mode_indexer_config.get("normalize", True),
+            )
+        except Exception as e:
+            click.echo(
+                f"❌ Failed to initialize indexer for {mode_name}: {e}", err=True
+            )
+            continue
 
-    click.echo("\n✅ Indexing complete!")
-    if hybrid:
+        # Build index
+        try:
+            table_indices = indexer.build_index(tables, schema_metadata)
+            click.echo(f"✓ Index built successfully for {mode_name}:")
+            for table_name, (idx, records) in table_indices.items():
+                click.echo(
+                    f"   - {table_name}: {idx.ntotal} vectors, {len(records)} records"
+                )
+        except Exception as e:
+            click.echo(f"❌ Index building failed for {mode_name}: {e}", err=True)
+            continue
+
+        # Save index (mode-specific directory)
+        mode_index_dir = base_index_dir / mode_name
+        mode_index_dir.mkdir(parents=True, exist_ok=True)
+
+        click.echo(f"\n💾 Saving index to {mode_index_dir}")
+        try:
+            indexer.save_multi_table_index(table_indices, mode_index_dir)
+            click.echo(f"✓ Index saved for {mode_name}")
+
+            # Save schema metadata
+            metadata_path_obj = Path(metadata_path)
+            schema_copy_path = mode_index_dir / "schema_metadata.json"
+            import shutil
+
+            shutil.copy(metadata_path_obj, schema_copy_path)
+        except Exception as e:
+            click.echo(f"❌ Failed to save index for {mode_name}: {e}", err=True)
+
+    click.echo(f"\n{'='*60}")
+    click.echo("✅ Indexing complete!")
+    if len(modes_to_build) == 1:
         click.echo(
-            "\nNext step: Run 'talk2metadata search \"your query\" --hybrid' to use hybrid search"
+            f"\nNext step: Run 'talk2metadata search \"your query\"' to search using {modes_to_build[0]}"
         )
     else:
         click.echo(
-            "\nNext step: Run 'talk2metadata search \"your query\"' to search records"
+            "\nNext step: Run 'talk2metadata search \"your query\" --compare' to compare all modes"
         )

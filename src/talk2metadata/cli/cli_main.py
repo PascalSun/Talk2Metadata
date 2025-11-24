@@ -65,13 +65,15 @@ def cli(ctx, config, log_level):
 
 
 # Register commands
+
 cli.add_command(ingest.ingest_cmd)
-cli.add_command(index.index_cmd)
 cli.add_command(schema.schema_cmd)
+cli.add_command(index.index_cmd)
 cli.add_command(search.search_cmd)
+
+cli.add_command(agent.agent_group)
 cli.add_command(benchmark.benchmark_cmd)
 cli.add_command(analyze.analyze_cmd)
-cli.add_command(agent.agent_group)
 
 
 def main():
