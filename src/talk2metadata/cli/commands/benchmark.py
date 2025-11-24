@@ -9,8 +9,7 @@ from pathlib import Path
 
 import click
 
-from talk2metadata.core.hybrid_retriever import HybridRetriever
-from talk2metadata.core.retriever import Retriever
+from talk2metadata.core.modes import RecordVoter
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 from talk2metadata.utils.paths import get_indexes_dir
@@ -61,11 +60,6 @@ DEFAULT_QUERIES = [
     help="Output file path for JSON results (optional)",
 )
 @click.option(
-    "--include-hybrid",
-    is_flag=True,
-    help="Include hybrid search benchmarks (requires BM25 index)",
-)
-@click.option(
     "--include-batch",
     is_flag=True,
     help="Include batch query benchmarks",
@@ -82,7 +76,6 @@ def benchmark_cmd(
     num_runs,
     top_k,
     output,
-    include_hybrid,
     include_batch,
     include_cold_start,
 ):
@@ -106,17 +99,20 @@ def benchmark_cmd(
     run_id = config.get("run_id")
     index_dir = get_indexes_dir(run_id, config)
 
-    # Validate index exists
-    index_path = index_dir / "index.faiss"
-    records_path = index_dir / "records.pkl"
+    # Validate index exists (multi-table index for RecordVoter)
+    schema_path = index_dir / "schema_metadata.json"
+    if not schema_path.exists():
+        from talk2metadata.utils.paths import find_schema_file, get_metadata_dir
 
-    if not index_path.exists():
-        click.echo(
-            f"❌ Index not found at {index_path}\n"
-            "   Please run 'talk2metadata index' first.",
-            err=True,
-        )
-        raise click.Abort()
+        metadata_dir = get_metadata_dir(run_id, config)
+        schema_path = find_schema_file(metadata_dir)
+        if not schema_path or not Path(schema_path).exists():
+            click.echo(
+                f"❌ Index not found at {index_dir}\n"
+                "   Please run 'talk2metadata index' first.",
+                err=True,
+            )
+            raise click.Abort()
 
     # Use provided queries or defaults
     query_list = list(queries) if queries else DEFAULT_QUERIES
@@ -145,17 +141,15 @@ def benchmark_cmd(
     # 1. Cold Start Benchmark (optional)
     if include_cold_start:
         click.echo("📊 Running cold start benchmark...")
-        cold_start_results = _benchmark_cold_start(config, index_dir)
+        cold_start_results = _benchmark_cold_start(config, index_dir, schema_path)
         results["benchmarks"]["cold_start"] = cold_start_results
-        click.echo(f"   Semantic: {cold_start_results['semantic_load_ms']:.1f}ms")
-        if cold_start_results.get("hybrid_load_ms"):
-            click.echo(f"   Hybrid:   {cold_start_results['hybrid_load_ms']:.1f}ms")
+        click.echo(f"   RecordVoter: {cold_start_results['load_ms']:.1f}ms")
         click.echo()
 
     # 2. Single Query Benchmark
     click.echo("📊 Running single query benchmark...")
     single_results = _benchmark_single_queries(
-        index_path, records_path, query_list, top_k, num_runs
+        index_dir, schema_path, query_list, top_k, num_runs
     )
     results["benchmarks"]["single_queries"] = single_results
     click.echo(f"   Mean:   {single_results['latencies']['mean_ms']:.2f}ms")
@@ -168,7 +162,7 @@ def benchmark_cmd(
     if include_batch:
         click.echo("📊 Running batch query benchmark...")
         batch_results = _benchmark_batch_queries(
-            index_path, records_path, query_list, top_k, max(5, num_runs // 2)
+            index_dir, schema_path, query_list, top_k, max(5, num_runs // 2)
         )
         results["benchmarks"]["batch_queries"] = batch_results
         click.echo(
@@ -178,26 +172,6 @@ def benchmark_cmd(
             f"   Per query:   {batch_results['per_query_latencies']['mean_ms']:.2f}ms"
         )
         click.echo()
-
-    # 4. Hybrid Search Benchmark (optional)
-    if include_hybrid:
-        bm25_path = index_dir / "bm25.pkl"
-        if bm25_path.exists():
-            click.echo("📊 Running hybrid search benchmark...")
-            hybrid_results = _benchmark_hybrid_search(
-                index_path, records_path, bm25_path, query_list, top_k, num_runs
-            )
-            results["benchmarks"]["hybrid_search"] = hybrid_results
-            click.echo(f"   Mean:   {hybrid_results['latencies']['mean_ms']:.2f}ms")
-            click.echo(f"   Median: {hybrid_results['latencies']['median_ms']:.2f}ms")
-            click.echo(f"   P95:    {hybrid_results['latencies']['p95_ms']:.2f}ms")
-            click.echo(f"   P99:    {hybrid_results['latencies']['p99_ms']:.2f}ms")
-            click.echo()
-        else:
-            click.echo(
-                "⚠️  Skipping hybrid benchmark (BM25 index not found)\n"
-                "   Run 'talk2metadata index --hybrid' to enable.\n"
-            )
 
     # 5. Component Breakdown
     click.echo("📊 Component breakdown:")
@@ -224,30 +198,20 @@ def benchmark_cmd(
         click.echo(f"\n💾 Results saved to: {output_path}")
 
 
-def _benchmark_cold_start(config, index_dir):
+def _benchmark_cold_start(config, index_dir, schema_path):
     """Benchmark cold start latency."""
-    # Semantic retriever
     start = time.perf_counter()
-    _ = Retriever.from_config(config)
-    semantic_load_time = (time.perf_counter() - start) * 1000
-
-    # Hybrid retriever (if available)
-    bm25_path = index_dir / "bm25.pkl"
-    hybrid_load_time = None
-    if bm25_path.exists():
-        start = time.perf_counter()
-        _ = HybridRetriever.from_config(config)
-        hybrid_load_time = (time.perf_counter() - start) * 1000
+    _ = RecordVoter.from_paths(index_dir, schema_path)
+    load_time = (time.perf_counter() - start) * 1000
 
     return {
-        "semantic_load_ms": round(semantic_load_time, 3),
-        "hybrid_load_ms": round(hybrid_load_time, 3) if hybrid_load_time else None,
+        "load_ms": round(load_time, 3),
     }
 
 
-def _benchmark_single_queries(index_path, records_path, queries, top_k, num_runs):
+def _benchmark_single_queries(index_dir, schema_path, queries, top_k, num_runs):
     """Benchmark single query latency."""
-    retriever = Retriever.from_paths(index_path, records_path)
+    retriever = RecordVoter.from_paths(index_dir, schema_path)
     all_latencies = []
 
     for query in queries:
@@ -265,14 +229,16 @@ def _benchmark_single_queries(index_path, records_path, queries, top_k, num_runs
     }
 
 
-def _benchmark_batch_queries(index_path, records_path, queries, top_k, num_runs):
-    """Benchmark batch query latency."""
-    retriever = Retriever.from_paths(index_path, records_path)
+def _benchmark_batch_queries(index_dir, schema_path, queries, top_k, num_runs):
+    """Benchmark batch query latency (sequential)."""
+    retriever = RecordVoter.from_paths(index_dir, schema_path)
     batch_latencies = []
 
     for _ in range(num_runs):
         start = time.perf_counter()
-        retriever.search_batch(queries, top_k=top_k)
+        # RecordVoter doesn't have search_batch, so simulate it
+        for query in queries:
+            retriever.search(query, top_k=top_k)
         duration_ms = (time.perf_counter() - start) * 1000
         batch_latencies.append(duration_ms)
 
@@ -292,28 +258,6 @@ def _benchmark_batch_queries(index_path, records_path, queries, top_k, num_runs)
             "mean_ms": round(statistics.mean(per_query_latencies), 3),
             "median_ms": round(statistics.median(per_query_latencies), 3),
         },
-    }
-
-
-def _benchmark_hybrid_search(
-    index_path, records_path, bm25_path, queries, top_k, num_runs
-):
-    """Benchmark hybrid search latency."""
-    retriever = HybridRetriever.from_paths(index_path, records_path, bm25_path)
-    all_latencies = []
-
-    for query in queries:
-        for _ in range(num_runs):
-            start = time.perf_counter()
-            retriever.search(query, top_k=top_k)
-            duration_ms = (time.perf_counter() - start) * 1000
-            all_latencies.append(duration_ms)
-
-    return {
-        "num_queries": len(queries),
-        "num_runs": num_runs,
-        "top_k": top_k,
-        "latencies": _calculate_stats(all_latencies),
     }
 
 

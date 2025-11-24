@@ -1,33 +1,25 @@
-"""Schema review and validation command."""
+"""Schema review and validation commands - refactored with modular structure."""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import click
 
-from talk2metadata.core.schema import SchemaMetadata
-from talk2metadata.core.schema_viz import (
-    export_schema_for_review,
-    generate_html_visualization,
-    validate_schema,
-)
+from talk2metadata.cli.decorators import handle_errors, with_run_id, with_schema_file
+from talk2metadata.cli.handlers import SchemaHandler
+from talk2metadata.cli.output import OutputFormatter
+from talk2metadata.cli.utils import CLIDataLoader
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
-from talk2metadata.utils.paths import find_schema_file, get_metadata_dir
 
 logger = get_logger(__name__)
+out = OutputFormatter()
 
 
 @click.command(name="schema")
-@click.option(
-    "--schema-file",
-    "-s",
-    "schema_file",
-    type=click.Path(exists=True),
-    help="Path to schema JSON file (default: data/metadata/schema.json)",
-)
+@with_schema_file
+@with_run_id
 @click.option(
     "--visualize",
     "-v",
@@ -37,7 +29,6 @@ logger = get_logger(__name__)
 @click.option(
     "--output",
     "-o",
-    "output_file",
     type=click.Path(),
     help="Output path for visualization HTML (default: schema_visualization.html)",
 )
@@ -57,9 +48,13 @@ logger = get_logger(__name__)
     type=click.Path(),
     help="Export schema in review-friendly format to specified file",
 )
+@handle_errors
 @click.pass_context
-def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export):
+def schema_cmd(ctx, schema_file, run_id, visualize, output, validate, edit, export):
     """Review and validate schema metadata.
+
+    This command provides tools for reviewing, validating, and visualizing
+    your database schema metadata, including tables, columns, and foreign keys.
 
     \b
     Examples:
@@ -72,40 +67,49 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
         # Generate visualization
         talk2metadata schema --visualize
 
-        # Edit schema
+        # Generate visualization with custom output
+        talk2metadata schema --visualize --output my_schema.html
+
+        # Edit schema interactively
         talk2metadata schema --edit
+
+        # Export schema for review
+        talk2metadata schema --export schema_review.json
+
+        # Use specific run ID
+        talk2metadata schema --run-id wamex_run
     """
     config = get_config()
-    run_id = config.get("run_id")
 
-    # Determine schema file path
-    if schema_file:
-        schema_path = Path(schema_file)
-    else:
-        metadata_dir = get_metadata_dir(run_id, config)
-        schema_path = find_schema_file(metadata_dir)
-
-    if not schema_path.exists():
-        click.echo(f"❌ Schema file not found: {schema_path}", err=True)
-        click.echo("   Run 'talk2metadata ingest' first to generate schema.", err=True)
-        raise click.Abort()
+    # Update config with CLI options
+    if run_id:
+        config.set("run_id", run_id)
 
     # Load schema
-    try:
-        schema = SchemaMetadata.load(schema_path)
-        click.echo(f"✓ Loaded schema from {schema_path}")
-    except Exception as e:
-        click.echo(f"❌ Failed to load schema: {e}", err=True)
-        raise click.Abort()
+    loader = CLIDataLoader(config)
+    schema = loader.load_schema(schema_file=schema_file, run_id=run_id)
+
+    # Get schema path for operations that need it
+    from talk2metadata.utils.paths import find_schema_file, get_metadata_dir
+
+    metadata_dir = get_metadata_dir(run_id or config.get("run_id"), config)
+    schema_path = Path(schema_file) if schema_file else find_schema_file(metadata_dir)
 
     # Display schema summary
-    click.echo("\n📊 Schema Summary:")
-    click.echo(f"   Target Table: {schema.target_table}")
-    click.echo(f"   Tables: {len(schema.tables)}")
-    click.echo(f"   Foreign Keys: {len(schema.foreign_keys)}")
+    handler = SchemaHandler(config)
+    summary = handler.get_schema_summary(schema)
+
+    out.section("📊 Schema Summary:")
+    out.stats(
+        {
+            "Target Table": summary["target_table"],
+            "Tables": summary["num_tables"],
+            "Foreign Keys": summary["num_foreign_keys"],
+        }
+    )
 
     if schema.tables:
-        click.echo("\n   Tables:")
+        out.section("   Tables:")
         for name, meta in schema.tables.items():
             is_target = " (target)" if name == schema.target_table else ""
             click.echo(
@@ -114,7 +118,7 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
             )
 
     if schema.foreign_keys:
-        click.echo("\n   Foreign Keys:")
+        out.section("   Foreign Keys:")
         for fk in schema.foreign_keys:
             coverage_icon = "✓" if fk.coverage >= 0.9 else "⚠"
             click.echo(
@@ -125,94 +129,70 @@ def schema_cmd(ctx, schema_file, visualize, output_file, validate, edit, export)
 
     # Validate if requested
     if validate:
-        click.echo("\n🔍 Validating schema...")
-        validation_result = validate_schema(schema)
+        out.section("🔍 Validating schema...")
+        validation_result = handler.validate(schema)
 
         if validation_result["errors"]:
-            click.echo("\n❌ Errors found:")
-            for error in validation_result["errors"]:
-                click.echo(f"   - {error}", err=True)
+            out.section("❌ Errors found:")
+            out.list_items(validation_result["errors"])
 
         if validation_result["warnings"]:
-            click.echo("\n⚠️  Warnings:")
-            for warning in validation_result["warnings"]:
-                click.echo(f"   - {warning}")
+            out.section("⚠️  Warnings:")
+            out.list_items(validation_result["warnings"])
 
         if not validation_result["errors"] and not validation_result["warnings"]:
-            click.echo("\n✓ Schema validation passed with no errors or warnings!")
+            out.success("Schema validation passed with no errors or warnings!")
 
     # Generate visualization if requested
     if visualize:
-        if output_file:
-            viz_path = Path(output_file)
-        else:
-            # Generate filename with target table name
-            target_table_safe = re.sub(r"[^\w\-_.]", "_", schema.target_table)
-            viz_path = (
-                schema_path.parent / f"schema_visualization_{target_table_safe}.html"
-            )
-
-        click.echo("\n🎨 Generating visualization...")
+        out.section("🎨 Generating visualization...")
         try:
-            generate_html_visualization(schema, viz_path)
-            click.echo(f"✓ Visualization saved to {viz_path}")
+            viz_path = handler.generate_visualization(
+                schema=schema,
+                output_file=output,
+                schema_path=schema_path,
+            )
+            out.success(f"Visualization saved to {viz_path}")
             click.echo(f"   Open in browser: file://{viz_path.absolute()}")
         except Exception as e:
-            click.echo(f"❌ Failed to generate visualization: {e}", err=True)
+            out.error(f"Failed to generate visualization: {e}")
             raise click.Abort()
 
     # Edit schema if requested
     if edit:
-        click.echo(f"\n✏️  Opening schema for editing: {schema_path}")
+        out.section(f"✏️  Opening schema for editing: {schema_path}")
         try:
-            import subprocess
-
-            # Try to open in default editor
-            editor = config.get("editor", None)
-            if editor:
-                subprocess.run([editor, str(schema_path)])
-            else:
-                # Try common editors
-                for editor_cmd in ["code", "vim", "nano", "vi"]:
-                    try:
-                        subprocess.run([editor_cmd, str(schema_path)], check=True)
-                        break
-                    except (subprocess.CalledProcessError, FileNotFoundError):
-                        continue
-                else:
-                    click.echo(
-                        "   Please edit the schema file manually: "
-                        f"{schema_path.absolute()}",
-                        err=True,
-                    )
+            schema = handler.edit_schema(schema_path)
 
             # After editing, reload and validate
-            click.echo("\n🔄 Reloading schema after edit...")
-            try:
-                schema = SchemaMetadata.load(schema_path)
-                validation_result = validate_schema(schema)
+            out.section("🔄 Reloading schema after edit...")
+            validation_result = handler.validate(schema)
 
-                if validation_result["errors"]:
-                    click.echo("\n❌ Schema has errors after editing:")
-                    for error in validation_result["errors"]:
-                        click.echo(f"   - {error}", err=True)
-                else:
-                    click.echo("✓ Schema is valid!")
-            except Exception as e:
-                click.echo(f"❌ Failed to reload schema: {e}", err=True)
+            if validation_result["errors"]:
+                out.section("❌ Schema has errors after editing:")
+                out.list_items(validation_result["errors"])
+            else:
+                out.success("Schema is valid!")
 
         except Exception as e:
-            click.echo(f"❌ Failed to open editor: {e}", err=True)
+            out.error(f"Failed to open editor: {e}")
+            out.info(f"Please edit the schema file manually: {schema_path.absolute()}")
 
     # Export schema for review if requested
     if export:
         export_path = Path(export)
-        click.echo(f"\n📄 Exporting schema for review to {export_path}...")
+        out.section(f"📄 Exporting schema for review to {export_path}...")
         try:
-            export_schema_for_review(schema, export_path, include_validation=validate)
-            click.echo("✓ Schema exported successfully")
-            click.echo("   Review the file and use it with:")
-            click.echo(f"   talk2metadata ingest <source> --schema {export_path}")
+            handler.export_for_review(
+                schema=schema,
+                output_file=str(export_path),
+                include_validation=validate,
+            )
+            out.success("Schema exported successfully")
+            out.next_steps(
+                "Review the file and use it with:",
+                [f"talk2metadata ingest <source> --schema {export_path}"],
+            )
         except Exception as e:
-            click.echo(f"❌ Failed to export schema: {e}", err=True)
+            out.error(f"Failed to export schema: {e}")
             raise click.Abort()

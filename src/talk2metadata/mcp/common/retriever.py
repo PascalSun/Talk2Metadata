@@ -5,28 +5,28 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from talk2metadata.core.hybrid_retriever import HybridRetriever
-from talk2metadata.core.retriever import Retriever
+from talk2metadata.core.modes import RecordVoter
 from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
+from talk2metadata.utils.paths import find_schema_file, get_metadata_dir
 
 logger = get_logger(__name__)
 
 # Global retriever instance
-_retriever: Optional[Retriever | HybridRetriever] = None
+_retriever: Optional[RecordVoter] = None
 
 
 def get_retriever(
     index_dir: str | Path | None = None, use_hybrid: bool = False
-) -> Retriever | HybridRetriever:
+) -> RecordVoter:
     """Get or create the global retriever instance.
 
     Args:
         index_dir: Optional path to index directory
-        use_hybrid: Whether to use hybrid retriever (BM25 + semantic)
+        use_hybrid: Ignored (kept for compatibility, always uses RecordVoter)
 
     Returns:
-        Retriever or HybridRetriever instance
+        RecordVoter instance
     """
     global _retriever
 
@@ -41,31 +41,22 @@ def get_retriever(
     else:
         index_dir = Path(index_dir)
 
-    index_path = index_dir / "index.faiss"
-    records_path = index_dir / "records.pkl"
+    # Find schema metadata
+    schema_path = index_dir / "schema_metadata.json"
+    if not schema_path.exists():
+        # Try metadata directory
+        run_id = config.get("run_id")
+        metadata_dir = get_metadata_dir(run_id, config)
+        schema_path = find_schema_file(metadata_dir)
+        if not schema_path or not Path(schema_path).exists():
+            raise FileNotFoundError(
+                "Schema metadata not found. Please run 'talk2metadata index' first."
+            )
 
-    if not index_path.exists():
-        raise FileNotFoundError(
-            f"Index not found at {index_path}. Please run 'talk2metadata index' first."
-        )
-
-    # Load retriever
+    # Load RecordVoter retriever
     try:
-        if use_hybrid:
-            bm25_path = index_dir / "bm25.pkl"
-            if not bm25_path.exists():
-                logger.warning(
-                    f"BM25 index not found at {bm25_path}. Falling back to semantic retriever."
-                )
-                _retriever = Retriever.from_paths(index_path, records_path)
-            else:
-                _retriever = HybridRetriever.from_paths(
-                    index_path, records_path, bm25_path
-                )
-                logger.info("Loaded hybrid retriever (BM25 + semantic)")
-        else:
-            _retriever = Retriever.from_paths(index_path, records_path)
-            logger.info("Loaded semantic retriever")
+        _retriever = RecordVoter.from_paths(index_dir, schema_path)
+        logger.info("Loaded RecordVoter retriever")
 
         return _retriever
 

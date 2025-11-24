@@ -46,18 +46,6 @@ class Config:
                     "min_overlap_ratio": 0.8,  # 80% value overlap for candidates
                 },
             },
-            "embedding": {
-                "model_name": "sentence-transformers/all-MiniLM-L6-v2",
-                "device": None,  # auto
-                "batch_size": 32,
-                "normalize": True,
-            },
-            "retrieval": {
-                "top_k": 5,
-                "use_hybrid_search": False,  # Optional BM25
-                "use_reranking": False,  # Optional cross-encoder
-                "similarity_metric": "cosine",
-            },
             "ingest": {
                 "target_table": None,
                 "data_type": None,
@@ -68,6 +56,36 @@ class Config:
                 "provider": "openai",
                 "model": "gpt-4o-mini",
                 "temperature": 0.0,
+            },
+            "qa_generation": {
+                "num_patterns": 15,
+                "instances_per_pattern": 5,
+                "validate": True,
+                "filter_valid": True,
+                "auto_save": True,
+            },
+            "modes": {
+                # Mode-specific configurations
+                "record_embedding": {
+                    "indexer": {
+                        "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+                        "device": None,
+                        "batch_size": 32,
+                        "normalize": True,
+                    },
+                    "retriever": {
+                        "top_k": 5,
+                        "similarity_metric": "cosine",
+                        "per_table_top_k": 5,
+                        "use_reranking": False,
+                    },
+                },
+                # Global mode settings
+                "active": "record_embedding",  # Active mode name
+                "compare": {  # Comparison mode settings
+                    "enabled": False,  # Enable comparison mode
+                    "modes": [],  # List of modes to compare (empty = all enabled)
+                },
             },
         }
 

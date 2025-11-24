@@ -15,29 +15,38 @@ schema:
     inclusion_tolerance: 0.1  # Allow 10% mismatch in FK relationships
     min_coverage: 0.9          # Require 90% coverage for FK inference
 
-# Embedding configuration
-embedding:
-  model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Fast and accurate
-  # Alternative models:
-  # - "sentence-transformers/all-mpnet-base-v2"  # Higher quality, slower
-  # - "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"  # Optimized for QA
-  device: null  # null for auto-detect, or 'cpu', 'cuda:0', etc.
-  batch_size: 32
-  normalize: true
+# Mode configuration
+# Each mode has its own indexer and retriever settings
+modes:
+  # Mode: record_embedding
+  record_embedding:
+    indexer:
+      model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Fast and accurate
+      # Alternative models:
+      # - "sentence-transformers/all-mpnet-base-v2"  # Higher quality, slower
+      # - "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"  # Optimized for QA
+      device: null  # null for auto-detect, or 'cpu', 'cuda:0', etc.
+      batch_size: 32
+      normalize: true
+    retriever:
+      top_k: 5
+      similarity_metric: "cosine"
+      per_table_top_k: 5  # Results per table before voting
+      use_reranking: false  # Requires cross-encoder (optional)
 
-# Retrieval settings
-retrieval:
-  top_k: 5
-  similarity_metric: "cosine"
+  # Future modes can be added here:
+  # future_mode_2:
+  #   indexer:
+  #     ...
+  #   retriever:
+  #     ...
 
-  # Hybrid search configuration (combines BM25 + semantic search)
-  hybrid:
-    alpha: 0.5  # Weight for combining scores (0=BM25 only, 1=semantic only)
-    fusion_method: "rrf"  # Fusion method: "rrf" (Reciprocal Rank Fusion) or "weighted_sum"
-    rrf_k: 60  # K parameter for RRF (default: 60)
-
-  # Future features
-  use_reranking: false  # Requires cross-encoder (optional)
+  # Global mode settings
+  active: "record_embedding"  # Active mode to use for indexing and retrieval
+  compare:  # Comparison mode settings
+    enabled: false  # Enable comparison mode (runs all modes and compares)
+    modes: []  # List of modes to compare (empty = all enabled modes)
+    # Example: ["record_embedding", "future_mode_2"]
 
 # Ingest configuration (optional, can be overridden by CLI arguments)
 ingest:

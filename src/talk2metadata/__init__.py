@@ -11,12 +11,14 @@ from talk2metadata.connectors import (
 )
 
 # Core modules
-from talk2metadata.core.indexer import Indexer
-from talk2metadata.core.retriever import Retriever, SearchResult
-from talk2metadata.core.schema import (
+from talk2metadata.core import (
     ForeignKey,
+    Indexer,
+    RecordVoter,
+    RecordVoteSearchResult,
     SchemaDetector,
     SchemaMetadata,
+    SearchResult,
     TableMetadata,
 )
 
@@ -24,29 +26,9 @@ from talk2metadata.core.schema import (
 from talk2metadata.utils.config import Config, get_config, load_config
 
 
-# Lazy imports for optional dependencies
+# Lazy imports for optional dependencies (if needed in future)
 def __getattr__(name):
     """Lazy import for optional modules."""
-    if name == "HybridRetriever":
-        try:
-            from talk2metadata.core.hybrid_retriever import HybridRetriever
-
-            return HybridRetriever
-        except ImportError as e:
-            raise ImportError(
-                "HybridRetriever requires additional dependencies. "
-                "Install with: pip install talk2metadata[mcp]"
-            ) from e
-    elif name == "BM25Index":
-        try:
-            from talk2metadata.core.hybrid_retriever import BM25Index
-
-            return BM25Index
-        except ImportError as e:
-            raise ImportError(
-                "BM25Index requires additional dependencies. "
-                "Install with: pip install talk2metadata[mcp]"
-            ) from e
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -55,10 +37,9 @@ __all__ = [
     "__version__",
     # Core
     "Indexer",
-    "Retriever",
+    "RecordVoter",
+    "RecordVoteSearchResult",
     "SearchResult",
-    "HybridRetriever",
-    "BM25Index",
     "SchemaDetector",
     "SchemaMetadata",
     "TableMetadata",

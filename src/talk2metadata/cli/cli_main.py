@@ -7,7 +7,16 @@ import click
 from talk2metadata import __version__
 
 # Import commands
-from talk2metadata.cli.commands import agent, analyze, benchmark, index, ingest, schema, search
+from talk2metadata.cli.commands import (
+    agent,
+    analyze,
+    benchmark,
+    index,
+    ingest,
+    qa,
+    schema,
+    search,
+)
 from talk2metadata.utils.config import load_config
 from talk2metadata.utils.logging import setup_logging
 
@@ -57,13 +66,16 @@ def cli(ctx, config, log_level):
 
 
 # Register commands
+
 cli.add_command(ingest.ingest_cmd)
-cli.add_command(index.index_cmd)
 cli.add_command(schema.schema_cmd)
+cli.add_command(index.index_cmd)
 cli.add_command(search.search_cmd)
+cli.add_command(qa.qa_group)
+
+cli.add_command(agent.agent_group)
 cli.add_command(benchmark.benchmark_cmd)
 cli.add_command(analyze.analyze_cmd)
-cli.add_command(agent.agent_group)
 
 
 def main():

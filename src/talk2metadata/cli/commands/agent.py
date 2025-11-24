@@ -118,8 +118,7 @@ def vllm_server_cmd(
         import vllm  # noqa: F401
     except ImportError:
         click.echo(
-            "❌ vLLM is not installed.\n"
-            "   Install it with: pip install vllm",
+            "❌ vLLM is not installed.\n" "   Install it with: pip install vllm",
             err=True,
         )
         sys.exit(1)
@@ -196,7 +195,7 @@ def vllm_server_cmd(
     if served_model_name:
         cmd.extend(["--served-model-name", served_model_name])
 
-    click.echo(f"🚀 Starting vLLM server...")
+    click.echo("🚀 Starting vLLM server...")
     click.echo(f"   Model: {model}")
     click.echo(f"   Endpoint: http://{host}:{port}/v1")
     click.echo(f"\n   Command: {' '.join(cmd)}\n")
@@ -213,4 +212,3 @@ def vllm_server_cmd(
     except Exception as e:
         click.echo(f"\n❌ Unexpected error: {e}", err=True)
         sys.exit(1)
-
