@@ -95,7 +95,7 @@ if [ -d "data/raw" ]; then
     print_success "Cleaned previous data"
 
     echo -e "${YELLOW}>> Ingesting sample data...${NC}"
-    if uv run talk2metadata ingest csv data/raw --target orders; then
+    if uv run talk2metadata schema ingest csv data/raw --target orders; then
         print_success "Ingestion complete"
     else
         print_error "Ingestion failed"
@@ -103,7 +103,7 @@ if [ -d "data/raw" ]; then
     fi
 
     echo -e "${YELLOW}>> Building search index...${NC}"
-    if uv run talk2metadata index; then
+    if uv run talk2metadata search index; then
         print_success "Index built"
     else
         print_error "Indexing failed"
@@ -113,15 +113,15 @@ if [ -d "data/raw" ]; then
     echo -e "${YELLOW}>> Testing searches...${NC}"
     echo ""
     echo "Query 1: 'healthcare customers'"
-    uv run talk2metadata search "healthcare customers" --top-k 3
+    uv run talk2metadata search retrieve "healthcare customers" --top-k 3
     echo ""
 
     echo "Query 2: 'technology companies'"
-    uv run talk2metadata search "technology companies" --top-k 3
+    uv run talk2metadata search retrieve "technology companies" --top-k 3
     echo ""
 
     echo "Query 3: 'pending orders' (JSON)"
-    uv run talk2metadata search "pending orders" --format json | head -20
+    uv run talk2metadata search retrieve "pending orders" --format json | head -20
     echo ""
 
     print_success "Integration tests passed"

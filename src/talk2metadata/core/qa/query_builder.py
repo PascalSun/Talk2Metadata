@@ -1,0 +1,614 @@
+"""Query builder for generating SQL queries based on difficulty strategies.
+
+This module generates SQL queries by:
+1. Randomly selecting tables and columns based on the strategy
+2. Generating appropriate filter conditions
+3. Building JOIN statements for path/intersection patterns
+4. Executing the query to get answer record IDs
+"""
+
+import random
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+import pandas as pd
+
+from talk2metadata.core.qa.difficulty_classifier import (
+    DifficultyClassifier,
+    JoinPath,
+    QueryPlan,
+)
+from talk2metadata.core.schema import ForeignKey, SchemaMetadata
+from talk2metadata.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class Filter:
+    """Represents a filter condition."""
+
+    table: str
+    column: str
+    operator: str  # '=', '>', '<', '>=', '<=', 'LIKE', 'IN'
+    value: Any  # The filter value
+
+    def to_sql(self) -> str:
+        """Convert filter to SQL condition."""
+        if isinstance(self.value, str):
+            return f"{self.table}.{self.column} {self.operator} '{self.value}'"
+        else:
+            return f"{self.table}.{self.column} {self.operator} {self.value}"
+
+
+@dataclass
+class QuerySpec:
+    """Specification for a generated query."""
+
+    strategy: str  # Difficulty code (e.g., "2iM")
+    target_table: str
+    join_paths: List[JoinPath]
+    filters: List[Filter]
+    sql: str
+    involved_tables: List[str]
+    involved_columns: List[str]  # table.column format
+    answer_row_ids: List[Any]  # Answer record IDs from query execution
+
+
+class QueryBuilder:
+    """Builds SQL queries based on difficulty strategies."""
+
+    def __init__(
+        self,
+        schema: SchemaMetadata,
+        tables: Dict[str, pd.DataFrame],
+    ):
+        """Initialize query builder.
+
+        Args:
+            schema: Schema metadata
+            tables: Dictionary mapping table names to DataFrames
+        """
+        self.schema = schema
+        self.tables = tables
+        self.target_table = schema.target_table
+        self.classifier = DifficultyClassifier()
+
+        # Get primary key for target table
+        self.target_pk = schema.tables[self.target_table].primary_key
+
+    def build_query(self, strategy: str, max_attempts: int = 10) -> Optional[QuerySpec]:
+        """Build a query based on the difficulty strategy.
+
+        Args:
+            strategy: Difficulty code (e.g., "2iM")
+            max_attempts: Maximum number of attempts to generate a valid query
+
+        Returns:
+            QuerySpec object, or None if generation failed
+        """
+        for attempt in range(max_attempts):
+            try:
+                # Parse strategy
+                pattern, difficulty = self._parse_strategy(strategy)
+
+                # Generate JOIN structure
+                join_paths = self._generate_join_structure(pattern)
+
+                # Generate filters
+                filters = self._generate_filters(difficulty, join_paths)
+
+                # Build SQL
+                sql = self._build_sql(join_paths, filters)
+
+                # Execute query to get answer IDs
+                answer_row_ids = self._execute_query_from_spec(join_paths, filters)
+
+                # Check if we got valid results
+                if not answer_row_ids or len(answer_row_ids) == 0:
+                    logger.debug("Query returned no results, retrying...")
+                    continue
+
+                # Get involved tables and columns
+                involved_tables = self._get_involved_tables(join_paths)
+                involved_columns = [f"{f.table}.{f.column}" for f in filters]
+
+                query_spec = QuerySpec(
+                    strategy=strategy,
+                    target_table=self.target_table,
+                    join_paths=join_paths,
+                    filters=filters,
+                    sql=sql,
+                    involved_tables=involved_tables,
+                    involved_columns=involved_columns,
+                    answer_row_ids=answer_row_ids,
+                )
+
+                # Validate the generated query
+                if self._validate_query(query_spec):
+                    logger.debug(
+                        f"Successfully generated query for {strategy} with {len(answer_row_ids)} results"
+                    )
+                    return query_spec
+
+            except Exception as e:
+                logger.debug(f"Attempt {attempt + 1} failed: {e}")
+                continue
+
+        logger.warning(
+            f"Failed to generate query for strategy {strategy} after {max_attempts} attempts"
+        )
+        return None
+
+    def _parse_strategy(self, strategy: str) -> Tuple[str, str]:
+        """Parse strategy into pattern and difficulty.
+
+        Args:
+            strategy: Difficulty code (e.g., "2iM")
+
+        Returns:
+            Tuple of (pattern, difficulty) (e.g., ("2i", "M"))
+        """
+        if strategy[0].isdigit():
+            if len(strategy) >= 2 and strategy[1] in ["p", "i"]:
+                return strategy[:2], strategy[2:]
+            else:
+                return strategy[0], strategy[1:]
+        else:
+            return strategy[:2], strategy[2:]
+
+    def _generate_join_structure(self, pattern: str) -> List[JoinPath]:
+        """Generate JOIN structure based on pattern.
+
+        Args:
+            pattern: Pattern code (e.g., "2i", "1p")
+
+        Returns:
+            List of JoinPath objects
+        """
+        if pattern == "0":
+            # No JOINs
+            return []
+
+        # Extract number and type
+        if pattern[-1] == "p":
+            # Path pattern (chain)
+            hops = int(pattern[0])
+            return self._generate_chain_joins(hops)
+        elif pattern[-1] == "i":
+            # Intersection pattern (star)
+            branches = int(pattern[0])
+            return self._generate_star_joins(branches)
+        else:
+            # Mixed or other patterns - not implemented yet
+            raise NotImplementedError(f"Pattern {pattern} not yet implemented")
+
+    def _generate_chain_joins(self, hops: int) -> List[JoinPath]:
+        """Generate chain JOIN paths.
+
+        Args:
+            hops: Number of hops (JOINs)
+
+        Returns:
+            List of JoinPath objects representing the chain
+        """
+        # Try multiple attempts to build a valid chain
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            try:
+                # Build a chain from target table
+                current_table = self.target_table
+                path_tables = [current_table]
+
+                for hop in range(hops):
+                    # Get foreign keys from current table
+                    fks = self.schema.get_foreign_keys_for_table(
+                        current_table, direction="outgoing"
+                    )
+
+                    if not fks:
+                        # No outgoing FKs, try incoming
+                        fks = self.schema.get_foreign_keys_for_table(
+                            current_table, direction="incoming"
+                        )
+
+                    if not fks:
+                        raise ValueError(
+                            f"No foreign keys found for table {current_table}"
+                        )
+
+                    # Filter out FKs that would create cycles
+                    valid_fks = []
+                    for fk in fks:
+                        next_table = (
+                            fk.parent_table
+                            if fk.child_table == current_table
+                            else fk.child_table
+                        )
+                        if next_table not in path_tables:
+                            valid_fks.append(fk)
+
+                    if not valid_fks:
+                        raise ValueError(
+                            f"No valid FKs to continue chain from {current_table} "
+                            f"(all would create cycles)"
+                        )
+
+                    # Randomly select one valid FK
+                    fk = random.choice(valid_fks)
+
+                    # Add next table to path
+                    if fk.child_table == current_table:
+                        next_table = fk.parent_table
+                    else:
+                        next_table = fk.child_table
+
+                    path_tables.append(next_table)
+                    current_table = next_table
+
+                # Successfully built a chain
+                return [JoinPath(tables=path_tables, join_type="chain")]
+
+            except ValueError as e:
+                logger.debug(f"Chain generation attempt {attempt + 1} failed: {e}")
+                continue
+
+        raise ValueError(
+            f"Failed to generate {hops}-hop chain after {max_attempts} attempts"
+        )
+
+    def _generate_star_joins(self, branches: int) -> List[JoinPath]:
+        """Generate star JOIN paths (intersection pattern).
+
+        Args:
+            branches: Number of branches (JOINs from target table)
+
+        Returns:
+            List of JoinPath objects, each representing one branch
+        """
+        # Get all foreign keys involving the target table
+        fks = self.schema.get_foreign_keys_for_table(
+            self.target_table, direction="both"
+        )
+
+        if len(fks) < branches:
+            raise ValueError(
+                f"Target table {self.target_table} has only {len(fks)} foreign keys, "
+                f"but {branches} branches are required"
+            )
+
+        # Randomly select branches
+        selected_fks = random.sample(fks, branches)
+
+        join_paths = []
+        for fk in selected_fks:
+            # Determine the related table
+            if fk.child_table == self.target_table:
+                related_table = fk.parent_table
+            else:
+                related_table = fk.child_table
+
+            # Each branch is a 2-table path
+            join_paths.append(
+                JoinPath(tables=[self.target_table, related_table], join_type="star")
+            )
+
+        return join_paths
+
+    def _generate_filters(
+        self, difficulty: str, join_paths: List[JoinPath]
+    ) -> List[Filter]:
+        """Generate filter conditions based on difficulty level.
+
+        Args:
+            difficulty: Difficulty level (E/M/H)
+            join_paths: List of JOIN paths
+
+        Returns:
+            List of Filter objects
+        """
+        # Determine number of filter columns based on difficulty
+        if difficulty == "E":
+            min_cols, max_cols = 1, 2
+        elif difficulty == "M":
+            min_cols, max_cols = 3, 5
+        elif difficulty == "H":
+            min_cols, max_cols = 6, 8
+        else:
+            min_cols, max_cols = 1, 2
+
+        num_filters = random.randint(min_cols, max_cols)
+
+        # Get all involved tables
+        involved_tables = self._get_involved_tables(join_paths)
+        if not involved_tables:
+            involved_tables = [self.target_table]
+
+        # Generate filters
+        filters = []
+        used_columns: Set[str] = set()
+
+        attempts = 0
+        max_attempts = num_filters * 3  # Allow multiple attempts
+
+        while len(filters) < num_filters and attempts < max_attempts:
+            attempts += 1
+
+            # Randomly select a table
+            table = random.choice(involved_tables)
+
+            # Get available columns (exclude primary keys and already used columns)
+            table_meta = self.schema.tables[table]
+            available_cols = [
+                col
+                for col in table_meta.columns
+                if col != table_meta.primary_key
+                and f"{table}.{col}" not in used_columns
+            ]
+
+            if not available_cols:
+                continue
+
+            # Randomly select a column
+            column = random.choice(available_cols)
+            used_columns.add(f"{table}.{column}")
+
+            # Generate a filter condition
+            filter_obj = self._generate_filter_condition(table, column)
+            if filter_obj:
+                filters.append(filter_obj)
+
+        return filters
+
+    def _generate_filter_condition(self, table: str, column: str) -> Optional[Filter]:
+        """Generate a filter condition for a specific column.
+
+        Args:
+            table: Table name
+            column: Column name
+
+        Returns:
+            Filter object, or None if generation failed
+        """
+        try:
+            df = self.tables[table]
+            values = df[column].dropna()
+
+            if len(values) == 0:
+                return None
+
+            # Randomly select a value
+            value = random.choice(values.tolist())
+
+            # Determine operator based on column type
+            dtype = values.dtype
+
+            if pd.api.types.is_numeric_dtype(dtype):
+                # Numeric column - use =, >, <, >=, <=
+                operator = random.choice(["=", ">", "<", ">=", "<="])
+            else:
+                # Non-numeric column - use =
+                operator = "="
+
+            return Filter(table=table, column=column, operator=operator, value=value)
+
+        except Exception as e:
+            logger.debug(f"Failed to generate filter for {table}.{column}: {e}")
+            return None
+
+    def _get_involved_tables(self, join_paths: List[JoinPath]) -> List[str]:
+        """Get all involved tables from JOIN paths.
+
+        Args:
+            join_paths: List of JOIN paths
+
+        Returns:
+            List of unique table names
+        """
+        tables = set()
+        for path in join_paths:
+            tables.update(path.tables)
+        return list(tables)
+
+    def _build_sql(self, join_paths: List[JoinPath], filters: List[Filter]) -> str:
+        """Build SQL query from JOIN paths and filters.
+
+        Args:
+            join_paths: List of JOIN paths
+            filters: List of filters
+
+        Returns:
+            SQL query string
+        """
+        # SELECT clause - select primary key from target table
+        sql = f"SELECT {self.target_table}.{self.target_pk} FROM {self.target_table}"
+
+        # JOIN clauses
+        if join_paths:
+            joined_tables = {self.target_table}
+            for path in join_paths:
+                for i in range(len(path.tables) - 1):
+                    from_table = path.tables[i]
+                    to_table = path.tables[i + 1]
+
+                    if to_table in joined_tables:
+                        continue
+
+                    # Find the foreign key relationship
+                    fk = self._find_foreign_key(from_table, to_table)
+                    if fk:
+                        if fk.child_table == from_table:
+                            sql += f"\nJOIN {to_table} ON {from_table}.{fk.child_column} = {to_table}.{fk.parent_column}"
+                        else:
+                            sql += f"\nJOIN {to_table} ON {from_table}.{fk.parent_column} = {to_table}.{fk.child_column}"
+                        joined_tables.add(to_table)
+
+        # WHERE clause
+        if filters:
+            where_conditions = [f.to_sql() for f in filters]
+            sql += "\nWHERE " + " AND ".join(where_conditions)
+
+        return sql
+
+    def _find_foreign_key(self, table1: str, table2: str) -> Optional[ForeignKey]:
+        """Find foreign key relationship between two tables.
+
+        Args:
+            table1: First table name
+            table2: Second table name
+
+        Returns:
+            ForeignKey object, or None if not found
+        """
+        for fk in self.schema.foreign_keys:
+            if (fk.child_table == table1 and fk.parent_table == table2) or (
+                fk.child_table == table2 and fk.parent_table == table1
+            ):
+                return fk
+        return None
+
+    def _execute_query_from_spec(
+        self, join_paths: List[JoinPath], filters: List[Filter]
+    ) -> List[Any]:
+        """Execute query using join paths and filters on pandas DataFrames.
+
+        Args:
+            join_paths: List of JOIN paths
+            filters: List of filter conditions
+
+        Returns:
+            List of target table row IDs
+        """
+        try:
+            # Start with target table
+            result_df = self.tables[self.target_table].copy()
+
+            # Add suffix to avoid column name conflicts
+            result_df = result_df.add_suffix(f"_{self.target_table}")
+            result_df = result_df.rename(
+                columns={f"{self.target_pk}_{self.target_table}": self.target_pk}
+            )
+
+            joined_tables = {self.target_table}
+
+            # Perform JOINs
+            for path in join_paths:
+                for i in range(len(path.tables) - 1):
+                    from_table = path.tables[i]
+                    to_table = path.tables[i + 1]
+
+                    if to_table in joined_tables:
+                        continue
+
+                    # Find FK relationship
+                    fk = self._find_foreign_key(from_table, to_table)
+                    if not fk:
+                        logger.warning(
+                            f"No FK found between {from_table} and {to_table}"
+                        )
+                        continue
+
+                    # Get the table to join
+                    join_df = self.tables[to_table].copy()
+                    join_df = join_df.add_suffix(f"_{to_table}")
+
+                    # Determine join columns
+                    if fk.child_table == from_table:
+                        left_on = (
+                            f"{fk.child_column}_{from_table}"
+                            if from_table != self.target_table
+                            else fk.child_column
+                        )
+                        right_on = f"{fk.parent_column}_{to_table}"
+                    else:
+                        left_on = (
+                            f"{fk.parent_column}_{from_table}"
+                            if from_table != self.target_table
+                            else fk.parent_column
+                        )
+                        right_on = f"{fk.child_column}_{to_table}"
+
+                    # Perform the join
+                    result_df = result_df.merge(
+                        join_df, left_on=left_on, right_on=right_on, how="inner"
+                    )
+
+                    joined_tables.add(to_table)
+
+            # Apply filters
+            for filter_obj in filters:
+                col_name = (
+                    f"{filter_obj.column}_{filter_obj.table}"
+                    if filter_obj.table != self.target_table
+                    else filter_obj.column
+                )
+
+                # Make sure column exists
+                if col_name not in result_df.columns:
+                    # Try without suffix
+                    if filter_obj.column in result_df.columns:
+                        col_name = filter_obj.column
+                    else:
+                        logger.debug(
+                            f"Column {col_name} not found in result, skipping filter"
+                        )
+                        continue
+
+                # Apply filter based on operator
+                if filter_obj.operator == "=":
+                    result_df = result_df[result_df[col_name] == filter_obj.value]
+                elif filter_obj.operator == ">":
+                    result_df = result_df[result_df[col_name] > filter_obj.value]
+                elif filter_obj.operator == "<":
+                    result_df = result_df[result_df[col_name] < filter_obj.value]
+                elif filter_obj.operator == ">=":
+                    result_df = result_df[result_df[col_name] >= filter_obj.value]
+                elif filter_obj.operator == "<=":
+                    result_df = result_df[result_df[col_name] <= filter_obj.value]
+
+            # Get primary key values from target table
+            if self.target_pk in result_df.columns:
+                return result_df[self.target_pk].dropna().unique().tolist()
+            else:
+                logger.warning(f"Primary key {self.target_pk} not found in result")
+                return []
+
+        except Exception as e:
+            logger.debug(f"Failed to execute query: {e}")
+            return []
+
+    def _validate_query(self, query_spec: QuerySpec) -> bool:
+        """Validate that the generated query matches the strategy.
+
+        Args:
+            query_spec: QuerySpec object
+
+        Returns:
+            True if valid, False otherwise
+        """
+        # Create QueryPlan for classification
+        filter_columns = set(query_spec.involved_columns)
+
+        query_plan = QueryPlan(
+            target_table=query_spec.target_table,
+            join_paths=query_spec.join_paths,
+            filter_columns=filter_columns,
+        )
+
+        # Classify the query
+        classified_strategy = self.classifier.classify(query_plan)
+
+        # Check if it matches the target strategy
+        if classified_strategy != query_spec.strategy:
+            logger.debug(
+                f"Strategy mismatch: expected {query_spec.strategy}, "
+                f"got {classified_strategy}"
+            )
+            return False
+
+        # Check if we have valid answers
+        if not query_spec.answer_row_ids or len(query_spec.answer_row_ids) == 0:
+            logger.debug("Query returned no results")
+            return False
+
+        return True

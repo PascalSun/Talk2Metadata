@@ -125,13 +125,15 @@ def get_qa_dir(run_id: Optional[str] = None, config=None) -> Path:
         return Path("./data/qa")
 
 
-def find_schema_file(metadata_dir: Path) -> Path:
+def find_schema_file(metadata_dir: Path, target_table: Optional[str] = None) -> Path:
     """Find schema JSON file in metadata directory.
 
-    Looks for schema.json first, then falls back to schema_*.json files.
+    If target_table is provided, looks for schema_{target_table}.json first.
+    Otherwise, looks for schema.json first, then falls back to schema_*.json files.
 
     Args:
         metadata_dir: Path to metadata directory
+        target_table: Optional target table name to construct filename
 
     Returns:
         Path to schema file
@@ -139,6 +141,15 @@ def find_schema_file(metadata_dir: Path) -> Path:
     Raises:
         FileNotFoundError: If no schema file is found
     """
+    # If target_table is provided, try schema_{target_table}.json first
+    if target_table:
+        import re
+
+        target_table_safe = re.sub(r"[^\w\-_.]", "_", target_table)
+        schema_path = metadata_dir / f"schema_{target_table_safe}.json"
+        if schema_path.exists():
+            return schema_path
+
     # First try schema.json
     schema_path = metadata_dir / "schema.json"
     if schema_path.exists():

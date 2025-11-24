@@ -41,6 +41,7 @@ class CLIDataLoader:
         self,
         schema_file: Optional[str] = None,
         run_id: Optional[str] = None,
+        target_table: Optional[str] = None,
         echo: bool = True,
     ) -> SchemaMetadata:
         """Load schema from file or config.
@@ -48,6 +49,7 @@ class CLIDataLoader:
         Args:
             schema_file: Optional explicit path to schema file
             run_id: Optional run ID (overrides config)
+            target_table: Optional target table name (reads from config if not provided)
             echo: Whether to echo progress to console
 
         Returns:
@@ -58,18 +60,27 @@ class CLIDataLoader:
         """
         run_id = run_id or self.config.get("run_id")
 
+        # Read target_table from config if not provided
+        if target_table is None:
+            target_table = self.config.get("ingest.target_table")
+
         # Determine schema file path
         if schema_file:
             schema_path = Path(schema_file)
         else:
             metadata_dir = get_metadata_dir(run_id, self.config)
             try:
-                schema_path = find_schema_file(metadata_dir)
+                schema_path = find_schema_file(metadata_dir, target_table=target_table)
             except FileNotFoundError:
                 if echo:
                     click.echo(f"❌ Schema file not found in {metadata_dir}", err=True)
+                    if target_table:
+                        click.echo(
+                            f"   Expected: schema_{target_table}.json or schema.json",
+                            err=True,
+                        )
                     click.echo(
-                        "   Run 'talk2metadata ingest' first to generate schema.",
+                        "   Run 'talk2metadata schema ingest' first to generate schema.",
                         err=True,
                     )
                 raise click.Abort()
@@ -169,6 +180,7 @@ class CLIDataLoader:
         schema_file: Optional[str] = None,
         data_dir: Optional[Path] = None,
         run_id: Optional[str] = None,
+        target_table: Optional[str] = None,
         echo: bool = True,
     ) -> Tuple[SchemaMetadata, Dict[str, pd.DataFrame], Config, str]:
         """Load both schema and tables in one call.
@@ -179,6 +191,7 @@ class CLIDataLoader:
             schema_file: Optional path to schema file
             data_dir: Optional data directory path
             run_id: Optional run ID
+            target_table: Optional target table name (reads from config if not provided)
             echo: Whether to echo progress to console
 
         Returns:
@@ -187,7 +200,9 @@ class CLIDataLoader:
         Raises:
             click.Abort: If loading fails
         """
-        schema = self.load_schema(schema_file=schema_file, run_id=run_id, echo=echo)
+        schema = self.load_schema(
+            schema_file=schema_file, run_id=run_id, target_table=target_table, echo=echo
+        )
         tables = self.load_tables(schema=schema, data_dir=data_dir, echo=echo)
         run_id = run_id or self.config.get("run_id")
         return schema, tables, self.config, run_id

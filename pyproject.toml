@@ -52,6 +52,7 @@ dependencies = [
     # Utils
     "tqdm>=4.65.0",
     "typing-extensions>=4.5",
+    "openai>=2.8.1",
 ]
 
 [project.urls]

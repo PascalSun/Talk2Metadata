@@ -6,16 +6,12 @@ import click
 
 from talk2metadata import __version__
 
-# Import commands
+# Import command groups
 from talk2metadata.cli.commands import (
-    agent,
-    analyze,
-    benchmark,
-    index,
-    ingest,
     qa,
-    schema,
-    search,
+    schema_group,
+    search_group,
+    utils_group,
 )
 from talk2metadata.utils.config import load_config
 from talk2metadata.utils.logging import setup_logging
@@ -41,19 +37,22 @@ def cli(ctx, config, log_level):
     \b
     Examples:
         # Ingest CSV files
-        talk2metadata ingest csv ./data/csv --target orders
+        talk2metadata schema ingest csv ./data/csv --target orders
 
         # Build search index
-        talk2metadata index
+        talk2metadata search index
 
         # Search for records
-        talk2metadata search "customers in healthcare industry"
+        talk2metadata search retrieve "customers in healthcare industry"
+
+        # Generate QA pairs
+        talk2metadata qa generate
 
         # Run performance benchmarks
-        talk2metadata benchmark --num-runs 20
+        talk2metadata utils benchmark --num-runs 20
 
         # Analyze log files
-        talk2metadata analyze logs/mcp_server.log
+        talk2metadata utils analyze logs/mcp_server.log
     """
     ctx.ensure_object(dict)
 
@@ -65,17 +64,11 @@ def cli(ctx, config, log_level):
         ctx.obj["config"] = load_config(config)
 
 
-# Register commands
-
-cli.add_command(ingest.ingest_cmd)
-cli.add_command(schema.schema_cmd)
-cli.add_command(index.index_cmd)
-cli.add_command(search.search_cmd)
+# Register command groups
+cli.add_command(schema_group.schema_group)
+cli.add_command(search_group.search_group)
 cli.add_command(qa.qa_group)
-
-cli.add_command(agent.agent_group)
-cli.add_command(benchmark.benchmark_cmd)
-cli.add_command(analyze.analyze_cmd)
+cli.add_command(utils_group.utils_group)
 
 
 def main():
