@@ -15,25 +15,6 @@ schema:
     inclusion_tolerance: 0.1  # Allow 10% mismatch in FK relationships
     min_coverage: 0.9          # Require 90% coverage for FK inference
 
-# Embedding configuration
-embedding:
-  model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Fast and accurate
-  # Alternative models:
-  # - "sentence-transformers/all-mpnet-base-v2"  # Higher quality, slower
-  # - "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"  # Optimized for QA
-  device: null  # null for auto-detect, or 'cpu', 'cuda:0', etc.
-  batch_size: 32
-  normalize: true
-
-# Retrieval settings
-retrieval:
-  top_k: 5
-  similarity_metric: "cosine"
-  per_table_top_k: 5  # For record_embedding mode: results per table before voting
-
-  # Future features
-  use_reranking: false  # Requires cross-encoder (optional)
-
 # Mode configuration
 # Each mode has its own indexer and retriever settings
 modes:

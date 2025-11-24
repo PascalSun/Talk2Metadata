@@ -17,7 +17,6 @@ from sentence_transformers import SentenceTransformer
 
 from talk2metadata.core.modes.record_embedding.search_result import SearchResult
 from talk2metadata.core.schema.schema import SchemaMetadata
-from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 from talk2metadata.utils.timing import TimingContext, timed
 
@@ -145,16 +144,10 @@ class RecordVoter:
         self.target_table = schema_metadata.target_table
         self.per_table_top_k = per_table_top_k
 
-        config = get_config()
-        self.model_name = model_name or config.get(
-            "embedding.model_name", "sentence-transformers/all-MiniLM-L6-v2"
-        )
-        self.device = device or config.get("embedding.device")
-        self.normalize = (
-            normalize
-            if normalize is not None
-            else config.get("embedding.normalize", True)
-        )
+        # Use provided parameters or defaults (mode-specific config should be passed via kwargs)
+        self.model_name = model_name or "sentence-transformers/all-MiniLM-L6-v2"
+        self.device = device
+        self.normalize = normalize if normalize is not None else True
 
         logger.info(f"Loading embedding model for queries: {self.model_name}")
         self.model = SentenceTransformer(self.model_name, device=self.device)

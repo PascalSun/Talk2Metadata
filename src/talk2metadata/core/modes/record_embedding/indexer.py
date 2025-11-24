@@ -13,7 +13,6 @@ from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 from talk2metadata.core.schema.schema import SchemaMetadata
-from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -37,17 +36,11 @@ class Indexer:
             batch_size: Batch size for encoding
             normalize: Whether to normalize embeddings
         """
-        config = get_config()
-        self.model_name = model_name or config.get(
-            "embedding.model_name", "sentence-transformers/all-MiniLM-L6-v2"
-        )
-        self.device = device or config.get("embedding.device")
-        self.batch_size = batch_size or config.get("embedding.batch_size", 32)
-        self.normalize = (
-            normalize
-            if normalize is not None
-            else config.get("embedding.normalize", True)
-        )
+        # Use provided parameters or defaults (mode-specific config should be passed via kwargs)
+        self.model_name = model_name or "sentence-transformers/all-MiniLM-L6-v2"
+        self.device = device
+        self.batch_size = batch_size or 32
+        self.normalize = normalize if normalize is not None else True
 
         logger.info(f"Loading embedding model: {self.model_name}")
         self.model = SentenceTransformer(self.model_name, device=self.device)

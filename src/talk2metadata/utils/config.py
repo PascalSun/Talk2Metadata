@@ -46,18 +46,6 @@ class Config:
                     "min_overlap_ratio": 0.8,  # 80% value overlap for candidates
                 },
             },
-            "embedding": {
-                "model_name": "sentence-transformers/all-MiniLM-L6-v2",
-                "device": None,  # auto
-                "batch_size": 32,
-                "normalize": True,
-            },
-            "retrieval": {
-                "top_k": 5,
-                "use_hybrid_search": False,  # Optional BM25
-                "use_reranking": False,  # Optional cross-encoder
-                "similarity_metric": "cosine",
-            },
             "ingest": {
                 "target_table": None,
                 "data_type": None,

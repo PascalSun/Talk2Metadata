@@ -214,21 +214,18 @@ def get_mode_indexer_config(mode_name: str) -> Dict[str, Any]:
         mode_name: Mode name
 
     Returns:
-        Indexer configuration dict (falls back to global embedding config)
+        Indexer configuration dict with defaults
     """
     mode_config = get_mode_config(mode_name)
     if mode_config and "indexer" in mode_config:
         return mode_config["indexer"]
 
-    # Fall back to global embedding config
-    config = get_config()
+    # Default configuration if mode-specific config not found
     return {
-        "model_name": config.get(
-            "embedding.model_name", "sentence-transformers/all-MiniLM-L6-v2"
-        ),
-        "device": config.get("embedding.device"),
-        "batch_size": config.get("embedding.batch_size", 32),
-        "normalize": config.get("embedding.normalize", True),
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+        "device": None,
+        "batch_size": 32,
+        "normalize": True,
     }
 
 
@@ -245,11 +242,10 @@ def get_mode_retriever_config(mode_name: str) -> Dict[str, Any]:
     if mode_config and "retriever" in mode_config:
         return mode_config["retriever"]
 
-    # Fall back to global retrieval config
-    config = get_config()
+    # Default configuration if mode-specific config not found
     return {
-        "top_k": config.get("retrieval.top_k", 5),
-        "similarity_metric": config.get("retrieval.similarity_metric", "cosine"),
-        "per_table_top_k": config.get("retrieval.per_table_top_k", 5),
-        "use_reranking": config.get("retrieval.use_reranking", False),
+        "top_k": 5,
+        "similarity_metric": "cosine",
+        "per_table_top_k": 5,
+        "use_reranking": False,
     }
