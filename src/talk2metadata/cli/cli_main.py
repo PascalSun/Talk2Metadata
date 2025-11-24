@@ -13,6 +13,7 @@ from talk2metadata.cli.commands import (
     benchmark,
     index,
     ingest,
+    qa,
     schema,
     search,
 )
@@ -70,6 +71,7 @@ cli.add_command(ingest.ingest_cmd)
 cli.add_command(schema.schema_cmd)
 cli.add_command(index.index_cmd)
 cli.add_command(search.search_cmd)
+cli.add_command(qa.qa_group)
 
 cli.add_command(agent.agent_group)
 cli.add_command(benchmark.benchmark_cmd)

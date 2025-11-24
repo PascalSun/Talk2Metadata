@@ -57,6 +57,13 @@ class Config:
                 "model": "gpt-4o-mini",
                 "temperature": 0.0,
             },
+            "qa_generation": {
+                "num_patterns": 15,
+                "instances_per_pattern": 5,
+                "validate": True,
+                "filter_valid": True,
+                "auto_save": True,
+            },
             "modes": {
                 # Mode-specific configurations
                 "record_embedding": {

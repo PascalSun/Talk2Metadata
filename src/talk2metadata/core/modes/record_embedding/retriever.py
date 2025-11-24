@@ -338,7 +338,7 @@ class RecordVoter:
                 matches.append((idx, float(distance)))
 
             all_matches[table_name] = matches
-            logger.debug(f"Found {len(matches)} matches in {table_name}")
+            logger.info(f"Found {len(matches)} matches in {table_name}")
 
         return all_matches
 

@@ -104,6 +104,27 @@ def get_indexes_dir(run_id: Optional[str] = None, config=None) -> Path:
         return Path(config.get("data.indexes_dir", "./data/indexes"))
 
 
+def get_qa_dir(run_id: Optional[str] = None, config=None) -> Path:
+    """Get QA directory path for a run_id.
+
+    Args:
+        run_id: Optional run ID
+        config: Optional config instance. If None, uses get_config()
+
+    Returns:
+        Path to QA directory
+    """
+    if config is None:
+        config = get_config()
+
+    if run_id:
+        run_base = get_run_base_dir(run_id)
+        return run_base / "qa"
+    else:
+        # Default to data/qa if no run_id
+        return Path("./data/qa")
+
+
 def find_schema_file(metadata_dir: Path) -> Path:
     """Find schema JSON file in metadata directory.
 
