@@ -18,6 +18,7 @@ Talk2Metadata employs a hybrid approach for foreign key detection:
 #### Rule-Based Detection
 
 Heuristic methods that identify foreign keys through:
+
 - **Naming patterns**: Columns ending with `_id`, `_key`, or matching table names
 - **Inclusion dependencies**: Child table values are subset of parent table values
 - **Coverage thresholds**: Configurable minimum coverage (default: 90%)
@@ -26,6 +27,7 @@ Heuristic methods that identify foreign keys through:
 #### Agent-Based Detection
 
 LLM-powered detection for complex relationships:
+
 - **Semantic analysis**: Understanding column name meanings
 - **Value pattern recognition**: Identifying non-obvious relationships
 - **Star schema awareness**: Prioritizing relationships to central/target tables
@@ -34,6 +36,7 @@ LLM-powered detection for complex relationships:
 ### 2. Schema Metadata
 
 Comprehensive metadata extraction including:
+
 - **Tables**: Names, row counts, primary keys
 - **Columns**: Names, types, nullable, unique constraints
 - **Relationships**: Foreign keys with coverage metrics
@@ -42,6 +45,7 @@ Comprehensive metadata extraction including:
 ### 3. Configuration
 
 Schema detection can be configured through:
+
 ```yaml
 schema:
   fk_detection:
@@ -59,6 +63,7 @@ schema:
 ### 1. CSV File Analysis
 
 Automatically detect relationships in uploaded CSV files:
+
 ```python
 from talk2metadata.connectors import CSVLoader
 from talk2metadata.core.schema import SchemaDetector
@@ -282,14 +287,17 @@ detector = SchemaDetector(
 ### Common Issues
 
 **Issue**: Foreign keys not detected
+
 - **Cause**: Low data coverage or non-standard naming
 - **Solution**: Lower `fk_coverage_threshold` or use agent-based detection
 
 **Issue**: Too many false positive FKs
+
 - **Cause**: Columns with overlapping values (e.g., status codes)
 - **Solution**: Increase threshold or add exclusion patterns
 
 **Issue**: Agent-based detection is slow
+
 - **Cause**: Too many table pairs, API rate limits
 - **Solution**: Use rule-based as first pass, agent only for ambiguous cases
 

@@ -41,16 +41,16 @@ Pattern types describe the **JOIN structure** of the query, inspired by Query Gr
 
 ### Pattern Notation
 
-| Code | Name | Description | JOIN Type | Example |
-|------|------|-------------|-----------|---------|
-| `0` | Direct | No JOIN, query only target table | None | Find orders with status='completed' |
-| `1p` | Single-hop Path | 1 JOIN in a chain | Chain | Find orders from Healthcare customers |
-| `2p` | Two-hop Path | 2 JOINs in a chain | Chain | Find orders from US-West region customers |
-| `3p` | Three-hop Path | 3 JOINs in a chain | Chain | Orders → Customers → Regions → Countries |
-| `2i` | Two-way Intersection | 2 JOINs in a star | Star | Find orders: Healthcare customers × Software products |
-| `3i` | Three-way Intersection | 3 JOINs in a star | Star | Orders: Healthcare customers × Software products × Senior sales |
-| `4i` | Four-way Intersection | 4 JOINs in a star | Star | Orders with 4 independent filter dimensions |
-| `Xm` | Mixed | Complex combination | Mixed | Chain + Star combinations |
+| Code | Name                   | Description                      | JOIN Type | Example                                                         |
+| ---- | ---------------------- | -------------------------------- | --------- | --------------------------------------------------------------- |
+| `0`  | Direct                 | No JOIN, query only target table | None      | Find orders with status='completed'                             |
+| `1p` | Single-hop Path        | 1 JOIN in a chain                | Chain     | Find orders from Healthcare customers                           |
+| `2p` | Two-hop Path           | 2 JOINs in a chain               | Chain     | Find orders from US-West region customers                       |
+| `3p` | Three-hop Path         | 3 JOINs in a chain               | Chain     | Orders → Customers → Regions → Countries                        |
+| `2i` | Two-way Intersection   | 2 JOINs in a star                | Star      | Find orders: Healthcare customers × Software products           |
+| `3i` | Three-way Intersection | 3 JOINs in a star                | Star      | Orders: Healthcare customers × Software products × Senior sales |
+| `4i` | Four-way Intersection  | 4 JOINs in a star                | Star      | Orders with 4 independent filter dimensions                     |
+| `Xm` | Mixed                  | Complex combination              | Mixed     | Chain + Star combinations                                       |
 
 ### Path vs Intersection
 
@@ -62,11 +62,13 @@ Target → Table1 → Table2 → ... → TableN
 ```
 
 **Characteristics**:
+
 - **Transitive reasoning** required
 - Each table depends on the previous one
 - Example schema: `Orders → Customers → Regions`
 
 **SQL Pattern**:
+
 ```sql
 SELECT o.*
 FROM orders o
@@ -76,6 +78,7 @@ WHERE r.name = 'US-West'
 ```
 
 **Cognitive Complexity**:
+
 - Understanding indirect relationships
 - Multi-step inference
 - Harder to trace the reasoning path
@@ -94,11 +97,13 @@ WHERE r.name = 'US-West'
 ```
 
 **Characteristics**:
+
 - **Conjunction reasoning** required
 - Independent filter conditions
 - Example schema: `Orders` connects to both `Customers` and `Products`
 
 **SQL Pattern**:
+
 ```sql
 SELECT o.*
 FROM orders o
@@ -109,6 +114,7 @@ WHERE c.industry = 'Healthcare'
 ```
 
 **Cognitive Complexity**:
+
 - Understanding multi-dimensional constraints
 - Combining independent conditions
 - Requires awareness of multiple relationships simultaneously
@@ -137,17 +143,18 @@ Difficulty levels describe the **filter complexity** based on the number of dist
 
 ### Difficulty Notation
 
-| Code | Name | Column Count | Description |
-|------|------|--------------|-------------|
-| `E` | Easy | 1-2 columns | Simple, single-condition or dual-condition filters |
-| `M` | Medium | 3-5 columns | Multiple filter conditions across tables |
-| `H` | Hard | 6+ columns | Complex multi-dimensional filtering |
+| Code | Name   | Column Count | Description                                        |
+| ---- | ------ | ------------ | -------------------------------------------------- |
+| `E`  | Easy   | 1-2 columns  | Simple, single-condition or dual-condition filters |
+| `M`  | Medium | 3-5 columns  | Multiple filter conditions across tables           |
+| `H`  | Hard   | 6+ columns   | Complex multi-dimensional filtering                |
 
 ### Column Counting Rules
 
 **Count distinct columns used in WHERE conditions** across all tables involved:
 
 #### Example 1: `1pE`
+
 ```sql
 SELECT o.* FROM orders o
 JOIN customers c ON o.customer_id = c.id
@@ -156,6 +163,7 @@ WHERE c.industry = 'Healthcare'
 - Columns: `c.industry` (1 column) → **E** (Easy)
 
 #### Example 2: `1pM`
+
 ```sql
 SELECT o.* FROM orders o
 JOIN customers c ON o.customer_id = c.id
@@ -166,6 +174,7 @@ WHERE c.industry = 'Healthcare'
 - Columns: `c.industry`, `c.annual_revenue`, `o.amount` (3 columns) → **M** (Medium)
 
 #### Example 3: `2iH`
+
 ```sql
 SELECT o.* FROM orders o
 JOIN customers c ON o.customer_id = c.id
@@ -185,29 +194,29 @@ WHERE c.industry = 'Healthcare'
 
 ### Difficulty Codes and Scores
 
-| Code | Pattern | Difficulty | Score | Tier | Description |
-|------|---------|-----------|-------|------|-------------|
-| **0E** | Direct | Easy | 0.0 | Easy | Direct filter, 1-2 columns |
-| **0M** | Direct | Medium | 0.3 | Easy | Direct filter, 3-5 columns |
-| **0H** | Direct | Hard | 0.6 | Easy | Direct filter, 6+ columns |
-| **1pE** | 1-hop Path | Easy | 1.0 | Medium | Single JOIN, simple filter |
-| **1pM** | 1-hop Path | Medium | 1.3 | Medium | Single JOIN, medium filter |
-| **1pH** | 1-hop Path | Hard | 1.6 | Medium | Single JOIN, complex filter |
-| **2pE** | 2-hop Path | Easy | 2.0 | Hard | 2-hop chain, simple |
-| **2pM** | 2-hop Path | Medium | 2.3 | Hard | 2-hop chain, medium |
-| **2pH** | 2-hop Path | Hard | 2.6 | Hard | 2-hop chain, complex |
-| **2iE** | 2-way Star | Easy | 2.0 | Hard | 2-way intersection, simple |
-| **2iM** | 2-way Star | Medium | 2.3 | Hard | 2-way intersection, medium |
-| **2iH** | 2-way Star | Hard | 2.6 | Hard | 2-way intersection, complex |
-| **3pE** | 3-hop Path | Easy | 3.0 | Expert | 3-hop chain, simple |
-| **3pM** | 3-hop Path | Medium | 3.3 | Expert | 3-hop chain, medium |
-| **3pH** | 3-hop Path | Hard | 3.6 | Expert | 3-hop chain, complex |
-| **3iE** | 3-way Star | Easy | 3.0 | Expert | 3-way intersection, simple |
-| **3iM** | 3-way Star | Medium | 3.3 | Expert | 3-way intersection, medium |
-| **3iH** | 3-way Star | Hard | 3.6 | Expert | 3-way intersection, complex |
-| **4iE** | 4-way Star | Easy | 4.0 | Expert | 4-way intersection, simple |
-| **4iM** | 4-way Star | Medium | 4.3 | Expert | 4-way intersection, medium |
-| **4iH** | 4-way Star | Hard | 4.6 | Expert | 4-way intersection, complex |
+| Code    | Pattern    | Difficulty | Score | Tier   | Description                 |
+| ------- | ---------- | ---------- | ----- | ------ | --------------------------- |
+| **0E**  | Direct     | Easy       | 0.0   | Easy   | Direct filter, 1-2 columns  |
+| **0M**  | Direct     | Medium     | 0.3   | Easy   | Direct filter, 3-5 columns  |
+| **0H**  | Direct     | Hard       | 0.6   | Easy   | Direct filter, 6+ columns   |
+| **1pE** | 1-hop Path | Easy       | 1.0   | Medium | Single JOIN, simple filter  |
+| **1pM** | 1-hop Path | Medium     | 1.3   | Medium | Single JOIN, medium filter  |
+| **1pH** | 1-hop Path | Hard       | 1.6   | Medium | Single JOIN, complex filter |
+| **2pE** | 2-hop Path | Easy       | 2.0   | Hard   | 2-hop chain, simple         |
+| **2pM** | 2-hop Path | Medium     | 2.3   | Hard   | 2-hop chain, medium         |
+| **2pH** | 2-hop Path | Hard       | 2.6   | Hard   | 2-hop chain, complex        |
+| **2iE** | 2-way Star | Easy       | 2.0   | Hard   | 2-way intersection, simple  |
+| **2iM** | 2-way Star | Medium     | 2.3   | Hard   | 2-way intersection, medium  |
+| **2iH** | 2-way Star | Hard       | 2.6   | Hard   | 2-way intersection, complex |
+| **3pE** | 3-hop Path | Easy       | 3.0   | Expert | 3-hop chain, simple         |
+| **3pM** | 3-hop Path | Medium     | 3.3   | Expert | 3-hop chain, medium         |
+| **3pH** | 3-hop Path | Hard       | 3.6   | Expert | 3-hop chain, complex        |
+| **3iE** | 3-way Star | Easy       | 3.0   | Expert | 3-way intersection, simple  |
+| **3iM** | 3-way Star | Medium     | 3.3   | Expert | 3-way intersection, medium  |
+| **3iH** | 3-way Star | Hard       | 3.6   | Expert | 3-way intersection, complex |
+| **4iE** | 4-way Star | Easy       | 4.0   | Expert | 4-way intersection, simple  |
+| **4iM** | 4-way Star | Medium     | 4.3   | Expert | 4-way intersection, medium  |
+| **4iH** | 4-way Star | Hard       | 4.6   | Expert | 4-way intersection, complex |
 
 ### Tier Boundaries
 
@@ -245,16 +254,19 @@ regions (4 rows)
 #### Easy Tier (0.0 - 0.9)
 
 **0E** (Score: 0.0)
+
 - Question: "Find all completed orders"
 - Filter: `status = 'completed'`
 - SQL: `SELECT * FROM orders WHERE status = 'completed'`
 
 **0M** (Score: 0.3)
+
 - Question: "Find completed orders with amount greater than $10,000"
 - Filters: `status`, `amount` (2 columns)
 - SQL: `SELECT * FROM orders WHERE status = 'completed' AND amount > 10000`
 
 **0H** (Score: 0.6)
+
 - Question: "Find completed orders with amount > $10,000, quantity > 5, placed after 2024-01-01"
 - Filters: `status`, `amount`, `quantity`, `order_date` (4 columns)
 
@@ -263,6 +275,7 @@ regions (4 rows)
 #### Medium Tier (1.0 - 1.9)
 
 **1pE** (Score: 1.0)
+
 - Question: "Find all orders from Healthcare industry customers"
 - Pattern: Orders → Customers
 - Filters: `customers.industry` (1 column)
@@ -274,6 +287,7 @@ regions (4 rows)
   ```
 
 **1pM** (Score: 1.3)
+
 - Question: "Find orders from Healthcare customers with annual revenue > $1M"
 - Pattern: Orders → Customers
 - Filters: `customers.industry`, `customers.annual_revenue` (2 columns)
@@ -286,6 +300,7 @@ regions (4 rows)
   ```
 
 **1pH** (Score: 1.6)
+
 - Question: "Find high-value orders from US Healthcare customers with revenue > $1M created after 2020"
 - Pattern: Orders → Customers
 - Filters: `customers.industry`, `customers.region`, `customers.annual_revenue`,
@@ -296,6 +311,7 @@ regions (4 rows)
 #### Hard Tier (2.0 - 2.9)
 
 **2pE** (Score: 2.0)
+
 - Question: "Find all orders from US-West region customers"
 - Pattern: Orders → Customers → Regions (chain)
 - Filters: `regions.name` (1 column)
@@ -308,6 +324,7 @@ regions (4 rows)
   ```
 
 **2iE** (Score: 2.0)
+
 - Question: "Find orders from Healthcare customers buying Software products"
 - Pattern: Orders ← Customers, Orders ← Products (star)
 - Filters: `customers.industry`, `products.category` (2 columns)
@@ -321,12 +338,14 @@ regions (4 rows)
   ```
 
 **2iM** (Score: 2.3)
+
 - Question: "Find orders from US Healthcare customers buying Enterprise Software"
 - Pattern: Orders ← Customers, Orders ← Products (star)
 - Filters: `customers.industry`, `customers.region`,
            `products.category`, `products.name` (4 columns)
 
 **2iH** (Score: 2.6)
+
 - Question: "Find high-value orders from US Healthcare customers with revenue > $1M buying expensive Enterprise Software"
 - Pattern: Star with 2 foreign tables
 - Filters: 6+ columns across customers, products, and orders
@@ -336,6 +355,7 @@ regions (4 rows)
 #### Expert Tier (3.0+)
 
 **3iE** (Score: 3.0)
+
 - Question: "Find orders from Healthcare customers buying Software, handled by Senior sales reps"
 - Pattern: Orders ← Customers, Orders ← Products, Orders ← Sales_Reps (3-way star)
 - Filters: `customers.industry`, `products.category`, `sales_reps.seniority` (3 columns)
@@ -351,6 +371,7 @@ regions (4 rows)
   ```
 
 **3pE** (Score: 3.0)
+
 - Question: "Find orders from customers in California, USA"
 - Pattern: Orders → Customers → Regions → Countries (3-hop chain)
 - Filters: `countries.name`, `regions.name` (2 columns)
@@ -526,12 +547,12 @@ print(score)  # Output: 2.0
 
 For a balanced QA dataset suitable for training and evaluation:
 
-| Tier | Target % | Difficulty Codes |
-|------|----------|------------------|
-| **Easy** | 30% | 0E (15%), 0M (10%), 0H (5%) |
-| **Medium** | 50% | 1pE (20%), 1pM (20%), 1pH (10%) |
-| **Hard** | 15% | 2pE (3%), 2pM (3%), 2iE (3%), 2iM (3%), 2iH (3%) |
-| **Expert** | 5% | 3pE (2%), 3iE (2%), 3iM (1%) |
+| Tier       | Target % | Difficulty Codes                                 |
+| ---------- | -------- | ------------------------------------------------ |
+| **Easy**   | 30%      | 0E (15%), 0M (10%), 0H (5%)                      |
+| **Medium** | 50%      | 1pE (20%), 1pM (20%), 1pH (10%)                  |
+| **Hard**   | 15%      | 2pE (3%), 2pM (3%), 2iE (3%), 2iM (3%), 2iH (3%) |
+| **Expert** | 5%       | 3pE (2%), 3iE (2%), 3iM (1%)                     |
 
 ### Progressive Distribution
 
@@ -563,6 +584,7 @@ This classification system is based on **Query Graph** frameworks from Knowledge
 ### Comparison to SQL Complexity Metrics
 
 Traditional SQL complexity metrics (e.g., Spider, WikiSQL) focus on:
+
 - Number of SELECT clauses
 - Aggregation functions (COUNT, SUM, AVG)
 - GROUP BY, HAVING, ORDER BY
@@ -570,6 +592,7 @@ Traditional SQL complexity metrics (e.g., Spider, WikiSQL) focus on:
 - Window functions
 
 **Our system differs** by:
+
 - ✅ Focusing on **record localization** rather than complex SQL operations
 - ✅ Emphasizing **JOIN structure** (graph topology)
 - ✅ Separating **structural complexity** (pattern) from **filter complexity** (difficulty)
@@ -578,10 +601,12 @@ Traditional SQL complexity metrics (e.g., Spider, WikiSQL) focus on:
 ### Why This Matters for Talk2Metadata
 
 Talk2Metadata is a **semantic search system** for database records. Users want to:
+
 - "Find orders from Healthcare customers" (1pE)
 - "Find orders matching specific product and customer criteria" (2iE)
 
 They typically **don't** need:
+
 - Complex aggregations ("What is the average order value by region?")
 - Window functions ("Rank customers by revenue")
 - Subqueries ("Find customers with above-average orders")
@@ -633,6 +658,7 @@ For specific database schemas, you may want to:
 ### Q: Why distinguish 2p from 2i?
 
 **A**: They represent fundamentally different reasoning patterns:
+
 - **2p (chain)**: Requires transitive reasoning (A→B→C)
 - **2i (star)**: Requires parallel filtering (A∧B from center)
 
@@ -641,6 +667,7 @@ Both are "hard" (score 2.0+), but the cognitive processes differ.
 ### Q: What if a query has both chain AND star?
 
 **A**: Use the `Xm` (mixed) pattern or choose the dominant pattern:
+
 - If primarily chain: Use `Xp`
 - If primarily star: Use `Xi`
 - If truly complex: `Xm` with custom scoring
@@ -648,6 +675,7 @@ Both are "hard" (score 2.0+), but the cognitive processes differ.
 ### Q: Can I add intermediate levels like `VH` (Very Hard)?
 
 **A**: Yes, but keep it simple. If needed:
+
 - `E`: 1-2 columns
 - `M`: 3-4 columns
 - `H`: 5-6 columns
@@ -658,12 +686,14 @@ Update the scoring formula accordingly (+0.2, +0.4, +0.6, +0.8).
 ### Q: How to handle self-joins?
 
 **A**: Treat as an additional hop:
+
 - Self-join on same table = +1 hop
 - Example: "Find employees managed by senior managers" (employee → employee)
 
 ### Q: What about optional JOINs (LEFT JOIN)?
 
 **A**: Same classification as INNER JOIN:
+
 - Pattern is determined by structure, not JOIN type
 - Optionality affects result cardinality, not reasoning complexity
 

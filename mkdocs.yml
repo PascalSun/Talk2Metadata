@@ -64,6 +64,13 @@ nav:
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
+  - Schema Detection:
+      - Overview: schema/index.md
+  - QA Generation:
+      - Overview: qa/index.md
+      - Difficulty Classification: qa/difficulty-classification.md
+  - Retriever:
+      - Overview: retriever/index.md
   - MCP Server:
       - Quick Start: mcp/quickstart.md
       - Integration Guide: mcp/integration.md
