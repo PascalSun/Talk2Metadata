@@ -52,9 +52,34 @@ graph LR
 
 ## Architecture
 
-Talk2Metadata is built with a modular architecture:
+Talk2Metadata is built with a modular architecture organized around three core components:
 
-- **Core**: Schema detection, embedding generation, retrieval
+### 🔗 [Schema Detection](schema/index.md)
+
+Automatically understand your database structure:
+- **Foreign Key Detection**: Rule-based and AI-powered relationship discovery
+- **Primary Key Inference**: Identify primary keys from data patterns
+- **Schema Metadata**: Extract comprehensive table and column information
+- **Hybrid Approach**: Combine heuristics with LLM-based semantic analysis
+
+### 🎯 [QA Generation](qa/index.md)
+
+Generate training data for record localization:
+- **Multi-Level Difficulty**: From Easy (0E) to Expert (4iH)
+- **Pattern Types**: Support both chain (path) and star (intersection) queries
+- **SQL + Ground Truth**: Generate questions with executable SQL and expected results
+- **[Difficulty Classification](qa/difficulty-classification.md)**: Systematic framework based on Query Graph patterns
+
+### 🚀 [Retriever](retriever/index.md)
+
+Index and search database records semantically:
+- **Denormalized Indexing**: Join related tables for rich context
+- **Hybrid Search**: Combine semantic (vector) and keyword (BM25) retrieval
+- **FAISS Integration**: Fast similarity search at scale
+- **Multiple Strategies**: Semantic-only, keyword-only, or hybrid fusion
+
+### 🔌 Additional Components
+
 - **Connectors**: Pluggable data sources (CSV, PostgreSQL, MySQL, SQLite)
 - **CLI**: User-friendly command-line interface
 - **MCP Server**: Model Context Protocol server for AI agent integration
@@ -64,6 +89,11 @@ Talk2Metadata is built with a modular architecture:
 ### Getting Started
 - [Installation Guide](getting-started/installation.md)
 - [Quick Start Tutorial](getting-started/quickstart.md)
+
+### Core Modules
+- [Schema Detection Guide](schema/index.md) - Detect foreign keys and understand your schema
+- [QA Generation Guide](qa/index.md) - Generate training datasets
+- [Retriever Guide](retriever/index.md) - Index and search records
 
 ### Advanced Features
 - [MCP Server Quick Start](mcp/quickstart.md)
