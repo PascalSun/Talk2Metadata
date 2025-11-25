@@ -32,6 +32,10 @@ class TableMetadata:
     primary_key: Optional[str] = None
     row_count: int = 0
     sample_values: Dict[str, List[str]] = field(default_factory=dict)
+    description: Optional[str] = None  # Human-readable description of the table
+    column_descriptions: Dict[str, str] = field(
+        default_factory=dict
+    )  # column_name -> description
 
     def __repr__(self) -> str:
         return f"TableMetadata({self.name}, columns={len(self.columns)}, rows={self.row_count})"

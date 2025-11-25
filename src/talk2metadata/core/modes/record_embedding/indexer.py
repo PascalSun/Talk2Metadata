@@ -108,9 +108,7 @@ class Indexer:
             logger.info(f"Indexing table: {table_name} ({len(df)} rows)")
 
             # Create texts for each row in this table
-            texts, records = self._create_table_texts(
-                df, table_name, tables, schema_metadata
-            )
+            texts, records = self._create_table_texts(df, table_name)
 
             logger.info(f"Generated {len(texts)} texts for {table_name}")
 
@@ -129,11 +127,7 @@ class Indexer:
         return table_indices
 
     def _create_table_texts(
-        self,
-        df: pd.DataFrame,
-        table_name: str,
-        tables: Dict[str, pd.DataFrame],
-        schema_metadata: SchemaMetadata,
+        self, df: pd.DataFrame, table_name: str
     ) -> Tuple[List[str], List[Dict]]:
         """Create text representations for each row in a table.
 

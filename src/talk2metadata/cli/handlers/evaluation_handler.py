@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -443,8 +444,51 @@ class EvaluationHandler:
                 lines.append("")
 
         lines.append("=" * 100)
+        lines.append("")
+
+        # Add config.yml content at the end
+        config_content = self._get_config_yml_content()
+        if config_content:
+            lines.append("=" * 100)
+            lines.append("Configuration (config.yml)")
+            lines.append("=" * 100)
+            lines.append("")
+            lines.append(config_content)
+            lines.append("")
 
         return "\n".join(lines)
+
+    def _get_config_yml_content(self) -> Optional[str]:
+        """Get the content of config.yml file.
+
+        Returns:
+            Content of config.yml file as string, or None if not found
+        """
+        # Try to find config.yml path
+        # Priority: TALK2METADATA_CONFIG env var > ./config.yml
+        config_path = None
+
+        env_path = os.getenv("TALK2METADATA_CONFIG")
+        if env_path:
+            path = Path(env_path)
+            if path.exists():
+                config_path = path
+
+        if config_path is None:
+            # Try local config.yml
+            local_config = Path("config.yml")
+            if local_config.exists():
+                config_path = local_config
+
+        if config_path and config_path.exists():
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    return f.read()
+            except Exception as e:
+                logger.warning(f"Failed to read config.yml: {e}")
+                return None
+
+        return None
 
     def save_evaluation_results(
         self,

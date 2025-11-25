@@ -132,10 +132,10 @@ class OpenAIProvider(BaseLLMProvider):
             )
 
         # Merge config defaults with call-time parameters
+        # Note: We exclude max_tokens and max_completion_tokens from initial merge
+        # to handle them separately based on model requirements
         default_keys = {
             "temperature",
-            "max_tokens",
-            "max_completion_tokens",
             "top_p",
             "frequency_penalty",
             "presence_penalty",
@@ -153,16 +153,28 @@ class OpenAIProvider(BaseLLMProvider):
             merged_kwargs["temperature"] = temperature
 
         # Handle max_tokens vs max_completion_tokens based on model
-        if max_tokens is not None:
+        # Priority: call-time max_tokens > config max_tokens > config max_completion_tokens
+        effective_max_tokens = max_tokens
+        if effective_max_tokens is None:
+            # Check config for max_tokens or max_completion_tokens
+            config_max_tokens = self.config.get("max_tokens")
+            config_max_completion_tokens = self.config.get("max_completion_tokens")
+            if config_max_tokens is not None:
+                effective_max_tokens = config_max_tokens
+            elif config_max_completion_tokens is not None:
+                effective_max_tokens = config_max_completion_tokens
+
+        # Convert to the correct parameter based on model
+        if effective_max_tokens is not None:
             if requires_max_completion_tokens:
-                # Use max_completion_tokens for o1 models
-                merged_kwargs["max_completion_tokens"] = max_tokens
-                # Remove max_tokens if it exists to avoid conflict
+                # Use max_completion_tokens for models that require it
+                merged_kwargs["max_completion_tokens"] = effective_max_tokens
+                # Ensure max_tokens is not present
                 merged_kwargs.pop("max_tokens", None)
             else:
                 # Use max_tokens for other models
-                merged_kwargs["max_tokens"] = max_tokens
-                # Remove max_completion_tokens if it exists to avoid conflict
+                merged_kwargs["max_tokens"] = effective_max_tokens
+                # Ensure max_completion_tokens is not present
                 merged_kwargs.pop("max_completion_tokens", None)
 
         # Handle JSON mode

@@ -342,33 +342,35 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
         }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
+            background: #f0f4f8;
+            padding: 30px 20px;
             line-height: 1.6;
             min-height: 100vh;
         }}
         .container {{
-            max-width: 1600px;
+            max-width: 1800px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 50px;
+            border: 1px solid #e2e8f0;
         }}
         h1 {{
-            color: #2d3748;
-            margin-bottom: 10px;
-            font-size: 32px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #1a202c;
+            margin-bottom: 8px;
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }}
         .meta {{
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 40px;
+            font-size: 15px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
         }}
         .summary {{
             display: grid;
@@ -377,60 +379,65 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
             margin-bottom: 40px;
         }}
         .summary-card {{
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            padding: 24px;
-            border-radius: 10px;
-            border-left: 5px solid #667eea;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: transform 0.2s, box-shadow 0.2s;
+            background: white;
+            padding: 28px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
         }}
         .summary-card:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            border-color: #3b82f6;
         }}
         .summary-card h3 {{
-            font-size: 13px;
-            color: #718096;
-            margin-bottom: 12px;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 16px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 600;
+            letter-spacing: 1.2px;
+            font-weight: 700;
         }}
         .summary-card .value {{
-            font-size: 36px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 42px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 8px;
+            line-height: 1;
+        }}
+        .summary-card .value + div {{
+            color: #64748b;
+            font-size: 13px;
+            margin-top: 8px;
         }}
         .tabs {{
             display: flex;
             border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 30px;
-            gap: 4px;
+            margin-bottom: 32px;
+            gap: 8px;
         }}
         .tab {{
-            padding: 14px 28px;
+            padding: 12px 24px;
             cursor: pointer;
             border: none;
             background: transparent;
             font-size: 15px;
-            color: #718096;
+            color: #64748b;
             border-bottom: 3px solid transparent;
-            transition: all 0.3s;
-            border-radius: 6px 6px 0 0;
-            font-weight: 500;
+            transition: all 0.2s;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            position: relative;
         }}
         .tab:hover {{
-            color: #667eea;
-            background: #f7fafc;
+            color: #3b82f6;
+            background: #f1f5f9;
         }}
         .tab.active {{
-            color: #667eea;
-            border-bottom-color: #667eea;
-            font-weight: 600;
-            background: #f7fafc;
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+            background: #f1f5f9;
         }}
         .tab-content {{
             display: none;
@@ -440,88 +447,125 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
         }}
         table {{
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             margin-top: 20px;
             font-size: 14px;
             background: white;
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            table-layout: fixed;
         }}
+        th:nth-child(1) {{ width: 60px; }}  /* # */
+        th:nth-child(2) {{ width: 20%; }}  /* Question */
+        th:nth-child(3) {{ width: 100px; }}  /* Status */
+        th:nth-child(4) {{ width: 90px; }}  /* Strategy */
+        th:nth-child(5) {{ width: 12%; }}  /* Expected IDs */
+        th:nth-child(6) {{ width: 12%; }}  /* Predicted IDs */
+        th:nth-child(7) {{ width: 22%; }}  /* Generated SQL */
+        th:nth-child(8) {{ width: 22%; }}  /* Expected SQL */
+        th:nth-child(9) {{ width: 10%; }}  /* Error */
         thead {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1e293b;
             position: sticky;
             top: 0;
             z-index: 10;
         }}
         th {{
-            padding: 16px 12px;
+            padding: 18px 16px;
             text-align: left;
-            font-weight: 600;
+            font-weight: 700;
             color: white;
             border-bottom: none;
             text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
+            font-size: 11px;
+            letter-spacing: 0.8px;
         }}
         td {{
-            padding: 16px 12px;
+            padding: 18px 16px;
             border-bottom: 1px solid #e2e8f0;
             vertical-align: top;
+            background: white;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }}
+        td:nth-child(1) {{  /* # */
+            text-align: center;
+            font-weight: 600;
+            color: #64748b;
+        }}
+        td:nth-child(2) {{  /* Question column */
+            word-break: break-word;
+        }}
+        td:nth-child(7), td:nth-child(8) {{  /* SQL columns */
+            padding: 12px;
         }}
         tbody tr {{
-            transition: background-color 0.2s;
+            transition: all 0.2s;
         }}
         tbody tr:hover {{
-            background: #f7fafc;
+            background: #f8fafc;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }}
         tbody tr:last-child td {{
             border-bottom: none;
         }}
         .status-correct {{
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            background: #c6f6d5;
-            color: #22543d;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #d1fae5;
+            color: #065f46;
+            font-weight: 700;
             font-size: 12px;
+            border: 1px solid #6ee7b7;
         }}
         .status-incorrect {{
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            background: #fed7d7;
-            color: #742a2a;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-weight: 700;
             font-size: 12px;
+            border: 1px solid #fca5a5;
         }}
         .status-exact {{
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            background: #bee3f8;
-            color: #2c5282;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: 700;
             font-size: 12px;
+            border: 1px solid #93c5fd;
         }}
         .sql-code {{
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
             font-size: 12px;
-            background: #1a202c;
+            background: #0f172a;
             color: #e2e8f0;
-            padding: 12px;
+            padding: 14px;
             border-radius: 6px;
-            max-width: none;
-            min-width: 300px;
+            width: 100%;
+            max-width: 100%;
             overflow-x: auto;
             white-space: pre-wrap;
             word-break: break-word;
             max-height: 300px;
             overflow-y: auto;
-            border: 1px solid #2d3748;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
             line-height: 1.5;
+            display: block;
+            box-sizing: border-box;
         }}
         .sql-code::-webkit-scrollbar {{
             width: 8px;
@@ -539,19 +583,49 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
             background: #718096;
         }}
         .question {{
-            max-width: 400px;
-            line-height: 1.6;
-            color: #2d3748;
+            line-height: 1.7;
+            color: #1e293b;
             font-weight: 500;
+            word-wrap: break-word;
+            white-space: normal;
+            font-size: 14px;
         }}
         .error {{
-            color: #e53e3e;
+            color: #991b1b;
             font-size: 12px;
-            font-style: italic;
-            background: #fed7d7;
-            padding: 6px 10px;
-            border-radius: 4px;
+            background: #fee2e2;
+            padding: 8px 12px;
+            border-radius: 6px;
             display: inline-block;
+            border: 1px solid #fca5a5;
+            font-weight: 500;
+        }}
+        .ids-list {{
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            color: #475569;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }}
+        .ids-list::-webkit-scrollbar {{
+            width: 6px;
+            height: 6px;
+        }}
+        .ids-list::-webkit-scrollbar-track {{
+            background: #f1f5f9;
+            border-radius: 3px;
+        }}
+        .ids-list::-webkit-scrollbar-thumb {{
+            background: #cbd5e0;
+            border-radius: 3px;
+        }}
+        .ids-list::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
         }}
         .metrics {{
             display: flex;
@@ -564,60 +638,63 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
             border-radius: 4px;
         }}
         .filter-bar {{
-            margin-bottom: 24px;
-            padding: 18px;
-            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-            border-radius: 8px;
+            margin-bottom: 28px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
             display: flex;
-            gap: 20px;
+            gap: 24px;
             align-items: center;
             flex-wrap: wrap;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
         }}
         .filter-bar label {{
-            font-weight: 600;
-            color: #2d3748;
+            font-weight: 700;
+            color: #1e293b;
             font-size: 14px;
         }}
         .filter-bar select {{
-            padding: 8px 16px;
+            padding: 10px 18px;
             border: 2px solid #cbd5e0;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 14px;
             background: white;
-            color: #2d3748;
+            color: #1e293b;
             cursor: pointer;
             transition: all 0.2s;
+            font-weight: 500;
         }}
         .filter-bar select:hover {{
-            border-color: #667eea;
+            border-color: #3b82f6;
+            background: #f8fafc;
         }}
         .filter-bar select:focus {{
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }}
         .badge {{
             display: inline-block;
-            padding: 5px 10px;
-            border-radius: 12px;
+            padding: 6px 12px;
+            border-radius: 6px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
         }}
         .badge-strategy {{
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            color: #1565c0;
-            border: 1px solid #90caf9;
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
         }}
         h2 {{
-            color: #2d3748;
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e2e8f0;
+            color: #1e293b;
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #e2e8f0;
+            letter-spacing: -0.3px;
         }}
     </style>
 </head>
@@ -763,17 +840,15 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
                 status_class = "status-incorrect"
                 status_text = "✗ Incorrect"
 
-            # Truncate and escape HTML
-            question_display = (
-                question[:150] + "..." if len(question) > 150 else question
-            )
-            question_display = html.escape(question_display)
+            # Display full question without truncation
+            question_display = html.escape(question)
             # Display full SQL without truncation
             generated_sql_display = html.escape(
                 generated_sql if generated_sql else "N/A"
             )
             expected_sql_display = html.escape(expected_sql if expected_sql else "N/A")
-            error_display = html.escape(error_msg[:100] if error_msg else "")
+            # Display full error message without truncation
+            error_display = html.escape(error_msg if error_msg else "")
 
             html_parts.append(
                 f"""
@@ -782,8 +857,8 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
                 <td class="question">{question_display}</td>
                 <td><span class="{status_class}">{status_text}</span></td>
                 <td><span class="badge badge-strategy">{html.escape(str(strategy))}</span></td>
-                <td>{len(expected_ids)} IDs: {html.escape(str(expected_ids[:5]))}{'...' if len(expected_ids) > 5 else ''}</td>
-                <td>{len(predicted_ids)} IDs: {html.escape(str(predicted_ids[:5]))}{'...' if len(predicted_ids) > 5 else ''}</td>
+                <td><div class="ids-list">{len(expected_ids)} IDs: {html.escape(str(expected_ids))}</div></td>
+                <td><div class="ids-list">{len(predicted_ids)} IDs: {html.escape(str(predicted_ids))}</div></td>
                 <td><div class="sql-code">{generated_sql_display}</div></td>
                 <td><div class="sql-code">{expected_sql_display}</div></td>
                 <td class="error">{error_display}</td>

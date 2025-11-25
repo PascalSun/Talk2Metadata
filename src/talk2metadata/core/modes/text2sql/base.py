@@ -109,8 +109,13 @@ class BaseText2SQLRetriever(BaseRetriever):
 
         # Merge API keys from keys section
         keys_config = agent_config.get("keys", {})
-        if f"{provider}_api_key" in keys_config:
-            agent_kwargs["api_key"] = keys_config[f"{provider}_api_key"]
+        # Check for provider-specific key (e.g., gemini_api_key)
+        api_key_name = f"{provider}_api_key"
+        # Special case: gemini provider also accepts google_api_key
+        if provider == "gemini" and "google_api_key" in keys_config:
+            agent_kwargs["api_key"] = keys_config["google_api_key"]
+        elif api_key_name in keys_config:
+            agent_kwargs["api_key"] = keys_config[api_key_name]
 
         # Expand environment variables in string values
         for key, value in agent_kwargs.items():
@@ -160,18 +165,27 @@ class BaseText2SQLRetriever(BaseRetriever):
                 parts.append(
                     "  ⭐ THIS IS THE TARGET TABLE (use this as the main table)"
                 )
+            # Add table description if available
+            if table_meta.description:
+                parts.append(f"  Description: {table_meta.description}")
             if table_meta.row_count > 0:
-                parts.append(f"  Row count: {table_meta.row_count}")
+                parts.append(f"  Row count: {table_meta.row_count:,}")
             if table_meta.primary_key:
                 parts.append(f"  Primary Key: {table_meta.primary_key}")
 
-            # Format columns with data types - emphasize exact names
+            # Format columns with data types and descriptions - emphasize exact names
             if isinstance(table_meta.columns, dict):
                 # columns is a dict: {column_name: dtype}
                 column_list = []
                 for col_name, dtype in table_meta.columns.items():
-                    column_list.append(f"{col_name} ({dtype})")
-                parts.append(f"  Columns: {', '.join(column_list)}")
+                    col_info = f"{col_name} ({dtype})"
+                    # Add column description if available
+                    if col_name in table_meta.column_descriptions:
+                        col_info += f" - {table_meta.column_descriptions[col_name]}"
+                    column_list.append(col_info)
+                parts.append("  Columns:")
+                for col_info in column_list:
+                    parts.append(f"    - {col_info}")
             else:
                 # Fallback: columns is a list
                 parts.append(f"  Columns: {', '.join(table_meta.columns)}")
@@ -347,13 +361,17 @@ class BaseText2SQLRetriever(BaseRetriever):
         for attempt in range(max_retries + 1):
             try:
                 # Test execute (with LIMIT 0 to avoid fetching data)
-                test_query = sql_query.rstrip(";")
-                if "LIMIT" not in test_query.upper():
-                    test_query += " LIMIT 0"
+                # Normalize SQL to lowercase before validation
+                # (since we preprocess all table/column names to lowercase)
+                sql_query_normalized = self._normalize_sql_to_lowercase(sql_query)
+
+                test_query = sql_query_normalized.rstrip(";")
+                if "limit" not in test_query:
+                    test_query += " limit 0"
                 else:
                     # Replace existing LIMIT with 0
                     test_query = re.sub(
-                        r"LIMIT\s+\d+", "LIMIT 0", test_query, flags=re.IGNORECASE
+                        r"limit\s+\d+", "limit 0", test_query, flags=re.IGNORECASE
                     )
 
                 with self.engine.connect() as conn:
@@ -482,6 +500,105 @@ class BaseText2SQLRetriever(BaseRetriever):
 
         return fixed_query
 
+    def _normalize_sql_to_lowercase(self, sql_query: str) -> str:
+        """Normalize SQL query to use lowercase table and column names.
+
+        Since we preprocess all table and column names to lowercase when importing
+        data, we need to ensure SQL queries also use lowercase names.
+
+        This method converts SQL identifiers (table/column names) to lowercase
+        while preserving string literals and SQL keywords.
+
+        Args:
+            sql_query: SQL query string
+
+        Returns:
+            SQL query with table and column names converted to lowercase
+        """
+        # Preserve string literals (both single and double quoted) while converting
+        # identifiers to lowercase. This ensures exact string matching works correctly.
+        # SQLite uses '' to escape single quotes, and "" or \" to escape double quotes.
+
+        result = []
+        i = 0
+        in_single_quote = False
+        in_double_quote = False
+
+        while i < len(sql_query):
+            char = sql_query[i]
+
+            if char == "'" and not in_double_quote:
+                # Check if it's an escaped single quote ('')
+                if i + 1 < len(sql_query) and sql_query[i + 1] == "'":
+                    result.append("''")
+                    i += 2
+                    continue
+                # Toggle single quote state
+                in_single_quote = not in_single_quote
+                result.append(char)
+            elif char == '"' and not in_single_quote:
+                # Check if it's an escaped double quote ("")
+                if i + 1 < len(sql_query) and sql_query[i + 1] == '"':
+                    result.append('""')
+                    i += 2
+                    continue
+                # Toggle double quote state
+                in_double_quote = not in_double_quote
+                result.append(char)
+            elif in_single_quote or in_double_quote:
+                # Inside string literal - preserve case
+                result.append(char)
+            else:
+                # Outside string literal - convert to lowercase
+                result.append(char.lower())
+
+            i += 1
+
+        return "".join(result)
+
+    def _convert_exact_to_fuzzy_match(self, sql_query: str) -> str:
+        """Convert exact string matches (=) to fuzzy matches (LIKE) for better search results.
+
+        This method converts exact equality matches on string columns to LIKE patterns
+        to handle variations in spacing, case, and punctuation.
+
+        Args:
+            sql_query: SQL query string
+
+        Returns:
+            SQL query with exact matches converted to fuzzy matches
+        """
+        import re
+
+        # Pattern to match: column = 'value' or table.column = 'value'
+        # We want to convert these to: column LIKE '%value%' or table.column LIKE '%value%'
+        # But we need to be careful not to match numeric comparisons or other non-string comparisons
+        # Pattern matches: (table.)column = 'string_value'
+        # Group 1: optional table name with dot
+        # Group 2: column name
+        # Group 3: string value (handles escaped quotes)
+        pattern = r'(\w+\.)?(\w+)\s*=\s*([\'"])([^\'"]*(?:\'\'[^\'"]*)*)\3'
+
+        def replace_match(match):
+            table_prefix = match.group(1) or ""
+            column = match.group(2)
+            quote = match.group(3)
+            value = match.group(4)
+
+            # Don't convert if it looks like a numeric comparison or ID comparison
+            # (e.g., id = 123, or status = 'Active' where Active might be an enum)
+            # For now, convert all string matches to LIKE for fuzzy matching
+            # Escape special LIKE characters (% and _) in the value
+            escaped_value = value.replace("%", "\\%").replace("_", "\\_")
+
+            # Use LIKE with wildcards for fuzzy matching
+            return f"{table_prefix}{column} LIKE {quote}%{escaped_value}%{quote}"
+
+        # Replace all exact matches with LIKE patterns
+        result = re.sub(pattern, replace_match, sql_query, flags=re.IGNORECASE)
+
+        return result
+
     def _execute_sql(self, sql_query: str) -> pd.DataFrame:
         """Execute SQL query and return results.
 
@@ -494,6 +611,10 @@ class BaseText2SQLRetriever(BaseRetriever):
         Raises:
             Exception: If SQL execution fails
         """
+        # Normalize SQL to lowercase before execution
+        # (since we preprocess all table/column names to lowercase)
+        sql_query = self._normalize_sql_to_lowercase(sql_query)
+
         logger.debug(f"Executing SQL: {sql_query[:100]}...")
         try:
             with self.engine.connect() as conn:

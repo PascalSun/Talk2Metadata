@@ -38,10 +38,12 @@ class Filter:
 
     def to_sql(self) -> str:
         """Convert filter to SQL condition."""
+        table_lower = self.table.lower()
+        column_lower = self.column.lower()
         if isinstance(self.value, str):
-            return f"{self.table}.{self.column} {self.operator} '{self.value}'"
+            return f"{table_lower}.{column_lower} {self.operator} '{self.value}'"
         else:
-            return f"{self.table}.{self.column} {self.operator} {self.value}"
+            return f"{table_lower}.{column_lower} {self.operator} {self.value}"
 
 
 @dataclass
@@ -77,12 +79,25 @@ class QueryBuilder:
             connection_string: Optional database connection string for SQL validation
         """
         self.schema = schema
-        self.tables = tables
         self.target_table = schema.target_table
         self.classifier = DifficultyClassifier()
 
         # Get primary key for target table
         self.target_pk = schema.tables[self.target_table].primary_key
+
+        # Normalize tables: convert table names and column names to lowercase
+        # to match the schema metadata (which was normalized during database import)
+        self.tables = {}
+        for table_name, df in tables.items():
+            table_name_lower = table_name.lower()
+            df_normalized = df.copy()
+            # Convert column names to lowercase
+            df_normalized.columns = [col.lower() for col in df_normalized.columns]
+            self.tables[table_name_lower] = df_normalized
+
+        logger.debug(
+            f"Normalized {len(self.tables)} tables to lowercase: {list(self.tables.keys())}"
+        )
 
         # Set up database engine for SQL validation
         self.engine = engine
@@ -577,9 +592,9 @@ class QueryBuilder:
             join_paths: List of JOIN paths
 
         Returns:
-            List of unique table names
+            List of unique table names (always includes target_table)
         """
-        tables = set()
+        tables = {self.target_table}  # Always include target table
         for path in join_paths:
             tables.update(path.tables)
         return list(tables)
@@ -592,34 +607,40 @@ class QueryBuilder:
             filters: List of filters
 
         Returns:
-            SQL query string
+            SQL query string (all table and column names in lowercase)
         """
+        # Convert table and column names to lowercase
+        target_table_lower = self.target_table.lower()
+        target_pk_lower = self.target_pk.lower()
+
         # SELECT clause - select primary key from target table
-        sql = f"SELECT {self.target_table}.{self.target_pk} FROM {self.target_table}"
+        sql = f"SELECT {target_table_lower}.{target_pk_lower} FROM {target_table_lower}"
 
         # JOIN clauses
         if join_paths:
-            joined_tables = {self.target_table}
+            joined_tables = {target_table_lower}
             for path in join_paths:
                 for i in range(len(path.tables) - 1):
-                    from_table = path.tables[i]
-                    to_table = path.tables[i + 1]
+                    from_table = path.tables[i].lower()
+                    to_table = path.tables[i + 1].lower()
 
                     if to_table in joined_tables:
                         continue
 
-                    # Find the foreign key relationship
-                    fk = self._find_foreign_key(from_table, to_table)
+                    # Find the foreign key relationship (using original case for lookup)
+                    fk = self._find_foreign_key(path.tables[i], path.tables[i + 1])
                     if fk:
-                        if fk.child_table == from_table:
-                            sql += f"\nJOIN {to_table} ON {from_table}.{fk.child_column} = {to_table}.{fk.parent_column}"
+                        child_col_lower = fk.child_column.lower()
+                        parent_col_lower = fk.parent_column.lower()
+                        if fk.child_table.lower() == from_table:
+                            sql += f"\nJOIN {to_table} ON {from_table}.{child_col_lower} = {to_table}.{parent_col_lower}"
                         else:
-                            sql += f"\nJOIN {to_table} ON {from_table}.{fk.parent_column} = {to_table}.{fk.child_column}"
+                            sql += f"\nJOIN {to_table} ON {from_table}.{parent_col_lower} = {to_table}.{child_col_lower}"
                         joined_tables.add(to_table)
 
         # WHERE clause
         if filters:
-            where_conditions = [f.to_sql() for f in filters]
+            where_conditions = [f.to_sql().lower() for f in filters]
             sql += "\nWHERE " + " AND ".join(where_conditions)
 
         return sql
@@ -628,15 +649,21 @@ class QueryBuilder:
         """Find foreign key relationship between two tables.
 
         Args:
-            table1: First table name
-            table2: Second table name
+            table1: First table name (can be original case or lowercase)
+            table2: Second table name (can be original case or lowercase)
 
         Returns:
             ForeignKey object, or None if not found
         """
+        # Normalize to lowercase for comparison
+        table1_lower = table1.lower()
+        table2_lower = table2.lower()
+
         for fk in self.schema.foreign_keys:
-            if (fk.child_table == table1 and fk.parent_table == table2) or (
-                fk.child_table == table2 and fk.parent_table == table1
+            fk_child_lower = fk.child_table.lower()
+            fk_parent_lower = fk.parent_table.lower()
+            if (fk_child_lower == table1_lower and fk_parent_lower == table2_lower) or (
+                fk_child_lower == table2_lower and fk_parent_lower == table1_lower
             ):
                 return fk
         return None
@@ -654,7 +681,7 @@ class QueryBuilder:
             List of target table row IDs
         """
         try:
-            # Start with target table
+            # Start with target table (already normalized to lowercase)
             result_df = self.tables[self.target_table].copy()
 
             # Add suffix to avoid column name conflicts
@@ -668,25 +695,26 @@ class QueryBuilder:
             # Perform JOINs
             for path in join_paths:
                 for i in range(len(path.tables) - 1):
-                    from_table = path.tables[i]
-                    to_table = path.tables[i + 1]
+                    # Normalize table names to lowercase (schema already uses lowercase)
+                    from_table = path.tables[i].lower()
+                    to_table = path.tables[i + 1].lower()
 
                     if to_table in joined_tables:
                         continue
 
-                    # Find FK relationship
-                    fk = self._find_foreign_key(from_table, to_table)
+                    # Find FK relationship (using original case for lookup, but FK is already lowercase)
+                    fk = self._find_foreign_key(path.tables[i], path.tables[i + 1])
                     if not fk:
                         logger.warning(
                             f"No FK found between {from_table} and {to_table}"
                         )
                         continue
 
-                    # Get the table to join
+                    # Get the table to join (already normalized to lowercase)
                     join_df = self.tables[to_table].copy()
                     join_df = join_df.add_suffix(f"_{to_table}")
 
-                    # Determine join columns
+                    # Determine join columns (FK columns are already lowercase)
                     if fk.child_table == from_table:
                         left_on = (
                             f"{fk.child_column}_{from_table}"
@@ -709,17 +737,19 @@ class QueryBuilder:
 
                     joined_tables.add(to_table)
 
-            # Apply filters
+            # Apply filters (filter_obj.table and filter_obj.column are already lowercase)
             for filter_obj in filters:
-                col_name = (
-                    f"{filter_obj.column}_{filter_obj.table}"
-                    if filter_obj.table != self.target_table
-                    else filter_obj.column
-                )
+                # Column names have suffix added, so we need to match that
+                if filter_obj.table == self.target_table:
+                    # For target table, column already has suffix from add_suffix
+                    col_name = f"{filter_obj.column}_{self.target_table}"
+                else:
+                    # For joined tables, column has suffix from join
+                    col_name = f"{filter_obj.column}_{filter_obj.table}"
 
                 # Make sure column exists
                 if col_name not in result_df.columns:
-                    # Try without suffix
+                    # Try without suffix (fallback)
                     if filter_obj.column in result_df.columns:
                         col_name = filter_obj.column
                     else:
@@ -804,14 +834,18 @@ class QueryBuilder:
             return True, None
 
         try:
+            # Normalize SQL to lowercase before validation
+            # (since we preprocess all table/column names to lowercase)
+            sql_query_lower = sql_query.lower()
+
             # Try to execute the query with LIMIT 0 to avoid fetching data
-            test_query = sql_query.rstrip(";")
-            if "LIMIT" not in test_query.upper():
-                test_query += " LIMIT 0"
+            test_query = sql_query_lower.rstrip(";")
+            if "limit" not in test_query:
+                test_query += " limit 0"
             else:
                 # Replace existing LIMIT with 0
                 test_query = re.sub(
-                    r"LIMIT\s+\d+", "LIMIT 0", test_query, flags=re.IGNORECASE
+                    r"limit\s+\d+", "limit 0", test_query, flags=re.IGNORECASE
                 )
 
             with self.engine.connect() as conn:

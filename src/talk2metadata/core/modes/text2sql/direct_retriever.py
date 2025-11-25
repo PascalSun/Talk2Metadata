@@ -46,55 +46,86 @@ class DirectText2SQLRetriever(BaseText2SQLRetriever):
 
         system_prompt = f"""You are an expert SQL query generator. Your task is to convert natural language questions into accurate, executable SQL queries.
 
+QUERY PATTERN UNDERSTANDING:
+All questions follow the same pattern: they ask you to FIND/FILTER records from the TARGET TABLE ({target_table_name}) based on various conditions.
+- The goal is ALWAYS to return records (identified by {target_table_name}.{id_column}) from the target table
+- You may need to JOIN other tables to apply filters, but the final result must be records from {target_table_name}
+- Think of it as: "Which records in {target_table_name} match these conditions?"
+
 CRITICAL REQUIREMENTS:
-1. ALWAYS include the target table's primary key or ID column in your SELECT clause (e.g., SELECT {target_table_name}.{id_column}, ...)
-2. Use EXACT table and column names from the schema - case sensitivity matters!
-3. Use proper table qualifiers when columns might be ambiguous (e.g., table_name.column_name)
-4. Pay careful attention to text matching - use EXACT string matching with proper escaping (column = 'value' with exact case and spacing)
-5. When joining tables, use the EXACT foreign key relationships provided
-6. Use proper SQL syntax for the database type
-7. Limit results to {top_k} rows using LIMIT clause
+1. ALWAYS SELECT {target_table_name}.{id_column} (the target table's primary key) - this identifies the records
+2. ALWAYS query FROM {target_table_name} (the target table) - this is your main table
+3. Use EXACT table and column names from the schema - case sensitivity matters!
+4. Use proper table qualifiers when columns might be ambiguous: table_name.column_name
+5. Pay careful attention to text matching - use LIKE '%value%' for fuzzy matching on text fields
+6. When joining tables, use the EXACT foreign key relationships provided in the schema
+7. Use proper SQL syntax (SQLite-compatible)
+8. Limit results to {top_k} rows using LIMIT clause
 
 STRING MATCHING RULES:
-- Use EXACT match (=) for specific values mentioned in the question: column = 'EXACT VALUE'
-- Use LIKE only when the question asks for "contains", "mentions", or similar fuzzy matching
-- Preserve exact case and spacing in string values as they appear in the data
+- DEFAULT: Use LIKE with wildcards for text matching to handle variations: column LIKE '%value%'
+- This provides fuzzy matching that handles:
+  * Case variations (uppercase/lowercase)
+  * Spacing differences
+  * Punctuation variations
+  * Partial matches
+- Use EXACT match (=) ONLY for:
+  * Numeric comparisons (id = 123)
+  * Boolean/enum values where exact match is critical (status = 'active')
+  * When the question explicitly requires exact matching
+- For text fields (titles, names, descriptions, etc.), ALWAYS use LIKE '%value%' for better search results
+- Pay attention to sample values in the schema - they show the format, but LIKE will match variations
 
-GENERAL EXAMPLES:
+QUERY PATTERNS:
 
-Example 1 - Simple filter:
-Question: "Show me records where status is 'ACTIVE' and category is 'PREMIUM'"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.status = 'ACTIVE' AND {target_table_name}.category = 'PREMIUM' LIMIT {top_k}
+Pattern 1 - Direct filter on target table:
+Question: "Show me records where status is 'Active'"
+SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.status LIKE '%active%' LIMIT {top_k}
+Note: Use LIKE for text fields to handle case/spacing variations. Use = only for exact enum/boolean values.
 
-Example 2 - Join with text search:
-Question: "Find records that mention 'important' in the description"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} JOIN related_table ON {target_table_name}.{id_column} = related_table.foreign_key WHERE related_table.description LIKE '%important%' LIMIT {top_k}
+Pattern 2 - Filter on target table + JOIN to filter by related table:
+Question: "Find records that have associated items with category 'Electronics'"
+SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} JOIN items_table ON {target_table_name}.{id_column} = items_table.parent_id WHERE items_table.category LIKE '%electronics%' LIMIT {top_k}
+Note: The JOIN is used to FILTER the target table records, not to return data from the joined table. Use LIKE for text matching.
 
-Example 3 - Numeric filter:
-Question: "Get records where id is greater than 100 and value is '12345'"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.id > 100 AND {target_table_name}.value = '12345' LIMIT {top_k}
+Pattern 3 - Multiple conditions (target table + related tables):
+Question: "Find records where status = 'Active' AND associated notes contain 'urgent'"
+SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} JOIN notes_table ON {target_table_name}.{id_column} = notes_table.record_id WHERE {target_table_name}.status LIKE '%active%' AND notes_table.content LIKE '%urgent%' LIMIT {top_k}
+Note: Use LIKE for text fields. For enum/boolean fields, you may use = if exact match is required.
 
-Example 4 - Join with exact match:
-Question: "Find records associated with file 'document.pdf'"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} JOIN files_table ON {target_table_name}.{id_column} = files_table.foreign_key WHERE files_table.filename = 'document.pdf' LIMIT {top_k}
+Pattern 4 - Complex text matching (fuzzy match):
+Question: "Find records with name 'John Smith'"
+SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.name LIKE '%john smith%' LIMIT {top_k}
+Note: Use LIKE for text fields to handle variations. LIKE '%value%' matches the value anywhere in the field, handling case and spacing differences.
 
-IMPORTANT:
-- Always SELECT the target table's primary key or ID column ({target_table_name}.{id_column})
-- Use EXACT table and column names from the schema provided
-- Use exact string matching (=) unless the question explicitly asks for partial matching
-- Preserve exact case and spacing in string values
-- When joining, use the EXACT foreign key relationships shown in the schema
-- Return ONLY the SQL query, no explanations"""
+Pattern 5 - Numeric comparison:
+Question: "Find records where price is greater than 100 and quantity is less than 50"
+SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.price > 100 AND {target_table_name}.quantity < 50 LIMIT {top_k}
+
+IMPORTANT REMINDERS:
+- The question is asking: "Which {target_table_name} records match these conditions?"
+- Always SELECT {target_table_name}.{id_column} to identify the matching records
+- Always FROM {target_table_name} (your main table)
+- JOINs are used to FILTER, not to return data from joined tables
+- Use column descriptions in the schema to understand what each column represents
+- Match text values EXACTLY as they appear in sample values (case, spacing, punctuation)
+- Return ONLY the SQL query, no explanations or markdown"""
 
         user_prompt = f"""{schema_text}
 
 Question: {query}
 
-Generate a SQL query to answer this question. Remember to:
-1. Include the target table's primary key or ID column in the SELECT clause
-2. Use proper table qualifiers for columns
-3. Match the question requirements exactly
-4. Use LIMIT {top_k} to limit results
+Your task: Find which records in {target_table_name} match the conditions described in the question.
+
+Generate a SQL query following these steps:
+1. SELECT {target_table_name}.{id_column} (to identify the matching records)
+2. FROM {target_table_name} (the target table - this is your main table)
+3. JOIN other tables ONLY if needed to apply filters (use foreign key relationships from schema)
+4. WHERE conditions: Match the question requirements exactly
+   - Use EXACT text matching (=) unless the question asks for partial matching
+   - Pay attention to column descriptions to understand what each column represents
+   - Match sample values exactly (case, spacing, punctuation)
+5. LIMIT {top_k} (to limit results)
 
 SQL Query:"""
 
@@ -129,6 +160,9 @@ SQL Query:"""
         if "LIMIT" not in sql_query.upper():
             sql_query = f"{sql_query.rstrip(';')} LIMIT {top_k}"
 
+        # Convert SQL to lowercase before storing and executing
+        sql_query = self._normalize_sql_to_lowercase(sql_query)
+
         logger.info(f"💾 SQL (final): {sql_query}")
         logger.info("-" * 80)
 
@@ -159,6 +193,8 @@ SQL Query:"""
                     sql_query = self._ensure_id_column_in_select(sql_query)
                     if "LIMIT" not in sql_query.upper():
                         sql_query = f"{sql_query.rstrip(';')} LIMIT {top_k}"
+                    # Convert SQL to lowercase before retrying
+                    sql_query = self._normalize_sql_to_lowercase(sql_query)
                     logger.info(f"Retrying with fixed SQL: {sql_query[:200]}...")
                 else:
                     logger.error("=" * 80)
@@ -166,6 +202,8 @@ SQL Query:"""
                         f"❌ ERROR: Failed to execute SQL after {max_execution_retries + 1} attempts: {e}"
                     )
                     logger.error("=" * 80)
+                    # Convert SQL to lowercase before storing error result
+                    sql_query = self._normalize_sql_to_lowercase(sql_query)
                     # Return error result
                     return [
                         Text2SQLSearchResult(

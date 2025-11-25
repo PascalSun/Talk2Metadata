@@ -55,13 +55,28 @@ def create_sqlite_from_csv(
     csv_loader = CSVLoader(data_dir=csv_data_dir, target_table=None)
     tables = csv_loader.load_tables()
 
+    # Create mapping from original to lowercase names for schema metadata update
+    table_name_mapping = {}
+    column_name_mapping = {}
+
     # Write tables to database
     # First, create tables without FK constraints (SQLite requires tables to exist before FK)
     logger.info(f"Writing {len(tables)} tables to SQLite database: {db_path}")
     for table_name, df in tables.items():
-        logger.info(f"  Writing table '{table_name}' ({len(df)} rows)...")
-        df.to_sql(
-            table_name,
+        # Convert table name and column names to lowercase
+        table_name_lower = table_name.lower()
+        table_name_mapping[table_name] = table_name_lower
+
+        df_lower = df.copy()
+        original_columns = list(df_lower.columns)
+        df_lower.columns = [col.lower() for col in df_lower.columns]
+        column_name_mapping[table_name] = dict(zip(original_columns, df_lower.columns))
+
+        logger.info(f"  Writing table '{table_name_lower}' ({len(df_lower)} rows)...")
+        logger.debug(f"    Columns (lowercased): {list(df_lower.columns)}")
+
+        df_lower.to_sql(
+            table_name_lower,
             engine,
             if_exists="replace",
             index=False,
@@ -69,40 +84,107 @@ def create_sqlite_from_csv(
             chunksize=1000,
         )
 
-    # Add foreign key constraints if schema_metadata is provided
-    # Note: SQLite doesn't support adding FK constraints to existing tables easily,
-    # but we enable FK checking and the relationships are available for query planning
+    # Update schema metadata to use lowercase names if provided
+    if schema_metadata:
+        logger.info("Updating schema metadata to use lowercase table and column names")
+        # Update table names in schema
+        updated_tables = {}
+        for table_name, table_meta in schema_metadata.tables.items():
+            if table_name in table_name_mapping:
+                table_name_lower = table_name_mapping[table_name]
+                # Update column names in table metadata
+                updated_columns = {}
+                if isinstance(table_meta.columns, dict):
+                    for col_name, dtype in table_meta.columns.items():
+                        if col_name in column_name_mapping[table_name]:
+                            col_name_lower = column_name_mapping[table_name][col_name]
+                            updated_columns[col_name_lower] = dtype
+                else:
+                    # columns is a list
+                    updated_columns = {
+                        column_name_mapping[table_name].get(col, col.lower()): "text"
+                        for col in table_meta.columns
+                    }
+
+                # Update primary key
+                updated_pk = None
+                if (
+                    table_meta.primary_key
+                    and table_meta.primary_key in column_name_mapping[table_name]
+                ):
+                    updated_pk = column_name_mapping[table_name][table_meta.primary_key]
+
+                # Update sample values keys to lowercase
+                updated_sample_values = {}
+                for col_name, values in table_meta.sample_values.items():
+                    if col_name in column_name_mapping[table_name]:
+                        col_name_lower = column_name_mapping[table_name][col_name]
+                        updated_sample_values[col_name_lower] = values
+
+                # Create new table metadata with lowercase names
+                from talk2metadata.core.schema.types import TableMetadata
+
+                updated_table_meta = TableMetadata(
+                    name=table_name_lower,
+                    columns=(
+                        updated_columns
+                        if isinstance(updated_columns, dict)
+                        else {col: "text" for col in updated_columns}
+                    ),
+                    primary_key=updated_pk,
+                    row_count=table_meta.row_count,
+                    sample_values=updated_sample_values,
+                )
+                updated_tables[table_name_lower] = updated_table_meta
+
+        # Update foreign keys
+        updated_fks = []
+        for fk in schema_metadata.foreign_keys:
+            child_table_lower = table_name_mapping.get(
+                fk.child_table, fk.child_table.lower()
+            )
+            parent_table_lower = table_name_mapping.get(
+                fk.parent_table, fk.parent_table.lower()
+            )
+
+            child_col_lower = column_name_mapping.get(fk.child_table, {}).get(
+                fk.child_column, fk.child_column.lower()
+            )
+            parent_col_lower = column_name_mapping.get(fk.parent_table, {}).get(
+                fk.parent_column, fk.parent_column.lower()
+            )
+
+            from talk2metadata.core.schema.types import ForeignKey
+
+            updated_fk = ForeignKey(
+                child_table=child_table_lower,
+                child_column=child_col_lower,
+                parent_table=parent_table_lower,
+                parent_column=parent_col_lower,
+                coverage=fk.coverage,
+            )
+            updated_fks.append(updated_fk)
+
+        # Update schema metadata
+        schema_metadata.tables = updated_tables
+        schema_metadata.foreign_keys = updated_fks
+        if schema_metadata.target_table in table_name_mapping:
+            schema_metadata.target_table = table_name_mapping[
+                schema_metadata.target_table
+            ]
+
+        logger.info("Schema metadata updated to use lowercase names")
+
+    # Log foreign key relationships
     if schema_metadata and schema_metadata.foreign_keys:
         logger.info(
             f"Found {len(schema_metadata.foreign_keys)} foreign key relationships"
         )
-        fk_count = 0
-        with engine.connect() as conn:
-            for fk in schema_metadata.foreign_keys:
-                # Check if both tables exist
-                if fk.child_table not in tables or fk.parent_table not in tables:
-                    logger.warning(
-                        f"Skipping FK {fk.child_table}.{fk.child_column} -> "
-                        f"{fk.parent_table}.{fk.parent_column}: table not found"
-                    )
-                    continue
-
-                # SQLite 3.20+ supports adding FK constraints, but it's complex
-                # For now, we ensure FK checking is enabled and log relationships
-                # The LLM can use these relationships for generating JOIN queries
-                logger.debug(
-                    f"FK: {fk.child_table}.{fk.child_column} -> "
-                    f"{fk.parent_table}.{fk.parent_column} (coverage: {fk.coverage:.2%})"
-                )
-                fk_count += 1
-
-            # Ensure foreign keys are enabled
-            conn.execute(text("PRAGMA foreign_keys = ON"))
-            conn.commit()
-
-        logger.info(
-            f"Foreign key relationships available for query planning ({fk_count} relationships)"
-        )
+        for fk in schema_metadata.foreign_keys:
+            logger.debug(
+                f"FK: {fk.child_table}.{fk.child_column} -> "
+                f"{fk.parent_table}.{fk.parent_column} (coverage: {fk.coverage:.2%})"
+            )
 
     logger.info(f"Successfully created SQLite database at {db_path}")
     return connection_string
