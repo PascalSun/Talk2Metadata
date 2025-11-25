@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 from pathlib import Path
 from typing import Any, Dict
@@ -310,6 +311,666 @@ def _display_search_results(
 
         out.section("=" * 80)
         out.success(f"Retrieved {len(results)} records")
+
+
+def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> None:
+    """Generate HTML visualization of evaluation results.
+
+    Args:
+        eval_data: Evaluation results dictionary from JSON
+        output_path: Path to save HTML file
+    """
+    timestamp = eval_data.get("timestamp", "Unknown")
+    total_qa_pairs = eval_data.get("total_qa_pairs", 0)
+    modes_evaluated = eval_data.get("modes_evaluated", [])
+    modes_summary = eval_data.get("modes", {})
+    detailed_results = eval_data.get("detailed_results", {})
+
+    html_parts = []
+    html_parts.append(
+        f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Results</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f4f8;
+            padding: 30px 20px;
+            line-height: 1.6;
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 50px;
+            border: 1px solid #e2e8f0;
+        }}
+        h1 {{
+            color: #1a202c;
+            margin-bottom: 8px;
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }}
+        .meta {{
+            color: #64748b;
+            margin-bottom: 40px;
+            font-size: 15px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }}
+        .summary {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+        .summary-card {{
+            background: white;
+            padding: 28px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }}
+        .summary-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            border-color: #3b82f6;
+        }}
+        .summary-card h3 {{
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+        }}
+        .summary-card .value {{
+            font-size: 42px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 8px;
+            line-height: 1;
+        }}
+        .summary-card .value + div {{
+            color: #64748b;
+            font-size: 13px;
+            margin-top: 8px;
+        }}
+        .tabs {{
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 32px;
+            gap: 8px;
+        }}
+        .tab {{
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            color: #64748b;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            position: relative;
+        }}
+        .tab:hover {{
+            color: #3b82f6;
+            background: #f1f5f9;
+        }}
+        .tab.active {{
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+            background: #f1f5f9;
+        }}
+        .tab-content {{
+            display: none;
+        }}
+        .tab-content.active {{
+            display: block;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+            font-size: 14px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            table-layout: fixed;
+        }}
+        th:nth-child(1) {{ width: 60px; }}  /* # */
+        th:nth-child(2) {{ width: 20%; }}  /* Question */
+        th:nth-child(3) {{ width: 100px; }}  /* Status */
+        th:nth-child(4) {{ width: 90px; }}  /* Strategy */
+        th:nth-child(5) {{ width: 12%; }}  /* Expected IDs */
+        th:nth-child(6) {{ width: 12%; }}  /* Predicted IDs */
+        th:nth-child(7) {{ width: 22%; }}  /* Generated SQL */
+        th:nth-child(8) {{ width: 22%; }}  /* Expected SQL */
+        th:nth-child(9) {{ width: 10%; }}  /* Error */
+        thead {{
+            background: #1e293b;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }}
+        th {{
+            padding: 18px 16px;
+            text-align: left;
+            font-weight: 700;
+            color: white;
+            border-bottom: none;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.8px;
+        }}
+        td {{
+            padding: 18px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+            background: white;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }}
+        td:nth-child(1) {{  /* # */
+            text-align: center;
+            font-weight: 600;
+            color: #64748b;
+        }}
+        td:nth-child(2) {{  /* Question column */
+            word-break: break-word;
+        }}
+        td:nth-child(7), td:nth-child(8) {{  /* SQL columns */
+            padding: 12px;
+        }}
+        tbody tr {{
+            transition: all 0.2s;
+        }}
+        tbody tr:hover {{
+            background: #f8fafc;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }}
+        tbody tr:last-child td {{
+            border-bottom: none;
+        }}
+        .status-correct {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #d1fae5;
+            color: #065f46;
+            font-weight: 700;
+            font-size: 12px;
+            border: 1px solid #6ee7b7;
+        }}
+        .status-incorrect {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-weight: 700;
+            font-size: 12px;
+            border: 1px solid #fca5a5;
+        }}
+        .status-exact {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: 700;
+            font-size: 12px;
+            border: 1px solid #93c5fd;
+        }}
+        .sql-code {{
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 14px;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+            line-height: 1.5;
+            display: block;
+            box-sizing: border-box;
+        }}
+        .sql-code::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+        .sql-code::-webkit-scrollbar-track {{
+            background: #2d3748;
+            border-radius: 4px;
+        }}
+        .sql-code::-webkit-scrollbar-thumb {{
+            background: #4a5568;
+            border-radius: 4px;
+        }}
+        .sql-code::-webkit-scrollbar-thumb:hover {{
+            background: #718096;
+        }}
+        .question {{
+            line-height: 1.7;
+            color: #1e293b;
+            font-weight: 500;
+            word-wrap: break-word;
+            white-space: normal;
+            font-size: 14px;
+        }}
+        .error {{
+            color: #991b1b;
+            font-size: 12px;
+            background: #fee2e2;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            border: 1px solid #fca5a5;
+            font-weight: 500;
+        }}
+        .ids-list {{
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            color: #475569;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }}
+        .ids-list::-webkit-scrollbar {{
+            width: 6px;
+            height: 6px;
+        }}
+        .ids-list::-webkit-scrollbar-track {{
+            background: #f1f5f9;
+            border-radius: 3px;
+        }}
+        .ids-list::-webkit-scrollbar-thumb {{
+            background: #cbd5e0;
+            border-radius: 3px;
+        }}
+        .ids-list::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
+        }}
+        .metrics {{
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+        }}
+        .metric {{
+            padding: 4px 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }}
+        .filter-bar {{
+            margin-bottom: 28px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            flex-wrap: wrap;
+            border: 1px solid #e2e8f0;
+        }}
+        .filter-bar label {{
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 14px;
+        }}
+        .filter-bar select {{
+            padding: 10px 18px;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #1e293b;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }}
+        .filter-bar select:hover {{
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }}
+        .filter-bar select:focus {{
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }}
+        .badge {{
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }}
+        .badge-strategy {{
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }}
+        h2 {{
+            color: #1e293b;
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #e2e8f0;
+            letter-spacing: -0.3px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Evaluation Results</h1>
+        <div class="meta">
+            <strong>Timestamp:</strong> {timestamp} |
+            <strong>Total QA Pairs:</strong> {total_qa_pairs} |
+            <strong>Modes:</strong> {", ".join(modes_evaluated)}
+        </div>
+"""
+    )
+
+    # Summary cards
+    html_parts.append('<div class="summary">')
+    for mode_name, mode_data in modes_summary.items():
+        accuracy = mode_data.get("accuracy", 0.0) * 100
+        f1 = mode_data.get("f1", 0.0) * 100
+        correct = mode_data.get("correct_predictions", 0)
+        total = mode_data.get("total_questions", 0)
+
+        html_parts.append(
+            f"""
+        <div class="summary-card">
+            <h3>{mode_name}</h3>
+            <div class="value">{accuracy:.1f}%</div>
+            <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                Accuracy: {correct}/{total} | F1: {f1:.2f}%
+            </div>
+        </div>
+        """
+        )
+    html_parts.append("</div>")
+
+    # Tabs for each mode
+    html_parts.append('<div class="tabs">')
+    for idx, mode_name in enumerate(modes_evaluated):
+        active = "active" if idx == 0 else ""
+        html_parts.append(
+            f'<button class="tab {active}" onclick="showTab(\'{mode_name}\')">{mode_name}</button>'
+        )
+    html_parts.append("</div>")
+
+    # Tab contents
+    for idx, mode_name in enumerate(modes_evaluated):
+        active = "active" if idx == 0 else ""
+        mode_data = modes_summary.get(mode_name, {})
+        mode_results = detailed_results.get(mode_name, [])
+
+        html_parts.append(f'<div id="tab-{mode_name}" class="tab-content {active}">')
+        html_parts.append(f"<h2>{mode_name} - Detailed Results</h2>")
+
+        # Collect unique strategies for filter
+        strategies = set()
+        for result in mode_results:
+            if result.get("strategy"):
+                strategies.add(result["strategy"])
+
+        # Filter bar
+        html_parts.append(
+            """
+        <div class="filter-bar">
+            <label>Filter by Status:</label>
+            <select id="filter-status-{}" onchange="filterTable('{}')">
+                <option value="all">All</option>
+                <option value="correct">Correct</option>
+                <option value="incorrect">Incorrect</option>
+                <option value="exact">Exact Match</option>
+            </select>
+            <label>Filter by Strategy:</label>
+            <select id="filter-strategy-{}" onchange="filterTable('{}')">
+                <option value="all">All</option>
+            </select>
+        </div>
+        """.format(
+                mode_name, mode_name, mode_name, mode_name
+            )
+        )
+
+        # Add strategy options
+        html_parts.append("<script>")
+        html_parts.append(
+            f"const strategies_{mode_name} = {json.dumps(sorted(list(strategies)))};"
+        )
+        html_parts.append(
+            f"""
+        (function() {{
+            const filterSelect = document.querySelector('#filter-strategy-{mode_name}');
+            if (filterSelect) {{
+                strategies_{mode_name}.forEach(s => {{
+                    const option = document.createElement('option');
+                    option.value = s;
+                    option.textContent = s;
+                    filterSelect.appendChild(option);
+                }});
+            }}
+        }})();
+        """
+        )
+        html_parts.append("</script>")
+
+        # Table
+        html_parts.append(f'<table id="table-{mode_name}">')
+        html_parts.append(
+            """
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Question</th>
+                <th>Status</th>
+                <th>Strategy</th>
+                <th>Expected IDs</th>
+                <th>Predicted IDs</th>
+                <th>Generated SQL</th>
+                <th>Expected SQL</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+        """
+        )
+
+        for result_idx, result in enumerate(mode_results, 1):
+            question = result.get("question", "")
+            correct = result.get("correct", False)
+            is_exact = result.get("is_exact_match", False)
+            strategy = result.get("strategy", "N/A")
+            expected_ids = result.get("expected_row_ids", [])
+            predicted_ids = result.get("predicted_row_ids", [])
+            generated_sql = result.get("generated_sql", "")
+            expected_sql = result.get("expected_sql", "")
+            error_msg = result.get("error_message", "")
+
+            # Status class
+            if is_exact:
+                status_class = "status-exact"
+                status_text = "✓ Exact"
+            elif correct:
+                status_class = "status-correct"
+                status_text = "✓ Correct"
+            else:
+                status_class = "status-incorrect"
+                status_text = "✗ Incorrect"
+
+            # Display full question without truncation
+            question_display = html.escape(question)
+            # Display full SQL without truncation
+            generated_sql_display = html.escape(
+                generated_sql if generated_sql else "N/A"
+            )
+            expected_sql_display = html.escape(expected_sql if expected_sql else "N/A")
+            # Display full error message without truncation
+            error_display = html.escape(error_msg if error_msg else "")
+
+            html_parts.append(
+                f"""
+            <tr data-status="{'correct' if correct else 'incorrect'}" data-exact="{'exact' if is_exact else 'no'}" data-strategy="{html.escape(str(strategy))}">
+                <td>{result_idx}</td>
+                <td class="question">{question_display}</td>
+                <td><span class="{status_class}">{status_text}</span></td>
+                <td><span class="badge badge-strategy">{html.escape(str(strategy))}</span></td>
+                <td><div class="ids-list">{len(expected_ids)} IDs: {html.escape(str(expected_ids))}</div></td>
+                <td><div class="ids-list">{len(predicted_ids)} IDs: {html.escape(str(predicted_ids))}</div></td>
+                <td><div class="sql-code">{generated_sql_display}</div></td>
+                <td><div class="sql-code">{expected_sql_display}</div></td>
+                <td class="error">{error_display}</td>
+            </tr>
+            """
+            )
+
+        html_parts.append("</tbody></table>")
+        html_parts.append("</div>")
+
+    # JavaScript for tabs and filtering
+    html_parts.append(
+        """
+    <script>
+        function showTab(modeName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Show selected tab
+            event.target.classList.add('active');
+            document.getElementById('tab-' + modeName).classList.add('active');
+        }
+
+        function filterTable(modeName) {
+            const statusFilter = document.getElementById('filter-status-' + modeName).value;
+            const strategyFilter = document.getElementById('filter-strategy-' + modeName).value;
+            const table = document.getElementById('table-' + modeName);
+            const rows = table.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                const status = row.dataset.status;
+                const exact = row.dataset.exact;
+                const strategy = row.dataset.strategy;
+
+                let show = true;
+
+                if (statusFilter === 'correct' && status !== 'correct') show = false;
+                if (statusFilter === 'incorrect' && status !== 'incorrect') show = false;
+                if (statusFilter === 'exact' && exact !== 'exact') show = false;
+                if (strategyFilter !== 'all' && strategy !== strategyFilter) show = false;
+
+                row.style.display = show ? '' : 'none';
+            });
+        }
+    </script>
+    </body>
+    </html>
+    """
+    )
+
+    html_content = "".join(html_parts)
+    output_path.write_text(html_content, encoding="utf-8")
+
+
+@search_group.command(name="evaluate-vis")
+@click.option(
+    "--eval-results",
+    "-e",
+    "eval_results_path",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to evaluation results JSON file",
+)
+@click.option(
+    "--output",
+    "-o",
+    "output_path",
+    type=click.Path(),
+    default=None,
+    help="Output path for HTML file (default: same directory as input with .html extension)",
+)
+@handle_errors
+def evaluate_vis_cmd(eval_results_path, output_path):
+    """Generate HTML visualization from evaluation results.
+
+    This command reads evaluation results JSON and generates an interactive HTML table
+    for easy review and analysis.
+
+    \b
+    Examples:
+        # Generate HTML from evaluation results
+        talk2metadata search evaluate-vis --eval-results ./evaluation.json
+
+        # Specify output path
+        talk2metadata search evaluate-vis --eval-results ./evaluation.json --output ./report.html
+    """
+    eval_results_path = Path(eval_results_path)
+
+    if not eval_results_path.exists():
+        out.error(f"Evaluation results file not found: {eval_results_path}")
+        raise click.Abort()
+
+    # Load evaluation data
+    try:
+        with open(eval_results_path, "r") as f:
+            eval_data = json.load(f)
+    except json.JSONDecodeError as e:
+        out.error(f"Invalid JSON file: {e}")
+        raise click.Abort()
+
+    # Determine output path
+    if output_path:
+        html_output = Path(output_path)
+    else:
+        html_output = eval_results_path.with_suffix(".html")
+
+    # Generate HTML
+    _generate_evaluation_html(eval_data, html_output)
+
+    out.success(f"📊 HTML visualization generated: {html_output}")
+    out.info(f"Open {html_output} in your browser to view the results")
 
 
 @search_group.command(name="retrieve")

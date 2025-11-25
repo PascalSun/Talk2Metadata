@@ -37,8 +37,8 @@ Given metadata with a star schema structure:
 **Related FK tables: `customers`, `products`**
 ```
 customers:          products:
-| id  | name     | industry    id  | name      | category |
-| --- | -------- | --------------- | --------- | -------- |  |
+| id  | name | industry    id | name | category |
+| --- | ---- | -------------- | ---- | -------- ||
 | 1   | Acme     | Healthcare  101 | Analytics | Software |
 | 2   | TechCorp | Technology  102 | Platform  | Software |
 ```
@@ -53,25 +53,6 @@ The system detects `orders.customer_id -> customers.id` and `orders.product_id -
 - Automatic evaluation and optimization
 - Supports CSV files and SQL databases
 
-## Example
-
-Given metadata with a target table `orders` and related tables `customers` and `products`:
-
-```bash
-# 1. Detect schema (finds: orders -> customers, orders -> products)
-talk2metadata ingest csv data/raw --target orders
-
-# 2. Generate QA pairs (e.g., "Find orders from Healthcare customers")
-talk2metadata prepare
-
-# 3. Build index and evaluate strategies
-talk2metadata index --hybrid
-talk2metadata evaluate
-
-# 4. Search
-talk2metadata search "orders from healthcare customers buying software"
-```
-
 ## Quick Start
 
 ```bash
@@ -82,14 +63,17 @@ source .venv/bin/activate
 # 2. Ingest metadata (CSV or database)
 talk2metadata schema ingest csv data/raw --target orders
 
-# 3. Generate QA pairs for evaluation
-talk2metadata search prepare
+# 3. Generate QA pairs
+talk2metadata qa generate
 
-# 4. Evaluate
-talk2metadata search evaluate
+# 4. Build search index
+talk2metadata search prepare
 
 # 5. Search
 talk2metadata search "orders from healthcare customers buying software"
+
+# or Evaluate
+talk2metadata search evaluate
 
 ```
 
@@ -116,39 +100,6 @@ setup.bat
 uv sync
 # or
 pip install -e .
-```
-
-## Usage
-
-### Complete Workflow
-
-```bash
-# 1. Ingest metadata (detects star schema automatically)
-talk2metadata schema ingest csv data/raw --target orders
-
-# 2. Generate QA pairs for evaluation
-talk2metadata search prepare
-
-# 3. Evaluate
-talk2metadata search evaluate
-
-# 4. Search
-talk2metadata search "customers in healthcare"
-```
-
-### Python API
-
-```python
-from talk2metadata import Retriever
-
-retriever = Retriever.from_paths(
-    "data/indexes/index.faiss",
-    "data/processed/tables.pkl"
-)
-
-results = retriever.search("healthcare customers", top_k=5)
-for result in results:
-    print(f"Rank {result.rank}: {result.data}")
 ```
 
 ## Documentation

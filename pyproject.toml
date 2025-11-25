@@ -53,6 +53,7 @@ dependencies = [
     "tqdm>=4.65.0",
     "typing-extensions>=4.5",
     "openai>=2.8.1",
+    "google-generativeai>=0.8.5",
 ]
 
 [project.urls]

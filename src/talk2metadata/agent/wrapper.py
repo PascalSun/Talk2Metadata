@@ -176,8 +176,13 @@ class AgentWrapper:
 
         # Merge API keys from keys section
         keys_config = agent_config.get("keys", {})
-        if f"{provider}_api_key" in keys_config:
-            merged["api_key"] = keys_config[f"{provider}_api_key"]
+        # Check for provider-specific key (e.g., gemini_api_key)
+        api_key_name = f"{provider}_api_key"
+        # Special case: gemini provider also accepts google_api_key
+        if provider == "gemini" and "google_api_key" in keys_config:
+            merged["api_key"] = keys_config["google_api_key"]
+        elif api_key_name in keys_config:
+            merged["api_key"] = keys_config[api_key_name]
 
         # Explicit kwargs override everything
         merged.update(kwargs)

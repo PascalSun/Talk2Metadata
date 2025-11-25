@@ -66,6 +66,8 @@ class SchemaMetadata:
                     "primary_key": meta.primary_key,
                     "row_count": meta.row_count,
                     "sample_values": meta.sample_values,
+                    "description": meta.description,
+                    "column_descriptions": meta.column_descriptions,
                 }
                 for name, meta in self.tables.items()
             },
@@ -99,6 +101,8 @@ class SchemaMetadata:
                 primary_key=meta.get("primary_key"),
                 row_count=meta.get("row_count", 0),
                 sample_values=meta.get("sample_values", {}),
+                description=meta.get("description"),
+                column_descriptions=meta.get("column_descriptions", {}),
             )
             for name, meta in data["tables"].items()
         }

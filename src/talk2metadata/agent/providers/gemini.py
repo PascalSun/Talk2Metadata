@@ -17,12 +17,15 @@ class GeminiProvider(BaseLLMProvider):
     """Google Gemini API provider."""
 
     def __init__(
-        self, model: str = "gemini-pro", api_key: Optional[str] = None, **kwargs: Any
+        self,
+        model: str = "gemini-1.5-pro",
+        api_key: Optional[str] = None,
+        **kwargs: Any,
     ):
         """Initialize Gemini provider.
 
         Args:
-            model: Model name (e.g., 'gemini-pro', 'gemini-pro-vision')
+            model: Model name (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro')
             api_key: Google API key (or set GOOGLE_API_KEY env var)
             **kwargs: Additional Gemini configuration
         """
