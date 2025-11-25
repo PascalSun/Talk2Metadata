@@ -249,7 +249,7 @@ def ingest_cmd(
     next_steps = ["Review schema: talk2metadata schema validate"]
     if not visualize:
         next_steps.append("Visualize schema: talk2metadata schema visualize")
-    next_steps.append("Build index: talk2metadata search index")
+    next_steps.append("Prepare modes: talk2metadata search prepare")
     out.next_steps("Next steps:", next_steps)
 
 

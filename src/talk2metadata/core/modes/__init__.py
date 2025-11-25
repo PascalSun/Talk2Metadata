@@ -2,6 +2,7 @@
 
 # Import to register modes
 from talk2metadata.core.modes import record_embedding  # noqa: F401
+from talk2metadata.core.modes import text2sql  # noqa: F401
 from talk2metadata.core.modes.registry import (
     ModeRegistry,
     get_active_mode,

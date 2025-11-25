@@ -33,33 +33,6 @@ def qa_group():
 @qa_group.command(name="generate")
 @with_standard_options
 @with_agent_config
-@click.option(
-    "--total",
-    "-t",
-    type=int,
-    help="Total number of QA pairs to generate (default: from config)",
-)
-@click.option(
-    "--pairs-per-strategy",
-    "-p",
-    type=int,
-    help="Generate this many pairs per strategy (overrides --total and weights)",
-)
-@click.option(
-    "--validate/--no-validate",
-    default=None,
-    help="Validate generated QA pairs (default: from config)",
-)
-@click.option(
-    "--filter-valid/--no-filter-valid",
-    default=None,
-    help="Filter out invalid QA pairs (default: from config)",
-)
-@click.option(
-    "--max-answer-records",
-    type=int,
-    help="Maximum number of answer records per question (default: 10, questions with more are too general)",
-)
 @handle_errors
 @click.pass_context
 def qa_generate_cmd(
@@ -69,11 +42,6 @@ def qa_generate_cmd(
     output,
     provider,
     model,
-    total,
-    pairs_per_strategy,
-    validate,
-    filter_valid,
-    max_answer_records,
 ):
     """Generate QA pairs based on difficulty strategies.
 
@@ -84,25 +52,18 @@ def qa_generate_cmd(
     4. Extracting answer record IDs
     5. Validating QA pairs
 
+    All QA generation settings are read from config.yml (qa_generation section).
+
     \b
     Examples:
         # Generate QA pairs with settings from config.yml
         talk2metadata qa generate
-
-        # Generate 50 QA pairs
-        talk2metadata qa generate --total 50
-
-        # Generate 5 pairs per strategy
-        talk2metadata qa generate --pairs-per-strategy 5
 
         # Save to custom location
         talk2metadata qa generate --output custom_qa_pairs.json
 
         # Use specific model
         talk2metadata qa generate --provider openai --model gpt-4o
-
-        # Disable validation
-        talk2metadata qa generate --no-validate
     """
     config = get_config()
 
@@ -195,21 +156,13 @@ def qa_generate_cmd(
                 reason = reasons.get(strategy, "Unknown reason")
                 out.warning(f"      {strategy}: {reason}")
 
-    # Get parameters
-    total_qa_pairs = total or config.get("qa_generation.total_qa_pairs", 100)
-    do_validate = (
-        validate if validate is not None else config.get("qa_generation.validate", True)
-    )
-    do_filter_valid = (
-        filter_valid
-        if filter_valid is not None
-        else config.get("qa_generation.filter_valid", True)
-    )
-    max_answer_records = (
-        max_answer_records
-        if max_answer_records is not None
-        else config.get("qa_generation.max_answer_records", 10)
-    )
+    # Get parameters from config
+    qa_config = config.get("qa_generation", {})
+    total_qa_pairs = qa_config.get("total_qa_pairs", 100)
+    pairs_per_strategy = qa_config.get("pairs_per_strategy")
+    do_validate = qa_config.get("validate", True)
+    do_filter_valid = qa_config.get("filter_valid", True)
+    max_answer_records = qa_config.get("max_answer_records", 10)
 
     out.section("🔍 Generating QA pairs...")
     out.stats(

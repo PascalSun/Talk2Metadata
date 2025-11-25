@@ -102,7 +102,7 @@ async def handle_search(args: dict[str, Any]) -> list[TextContent]:
                     {
                         "error": "Index not found",
                         "message": str(e),
-                        "hint": "Please run 'talk2metadata index' to build the search index first.",
+                        "hint": "Please run 'talk2metadata search prepare' to prepare modes first.",
                     },
                     indent=2,
                 ),

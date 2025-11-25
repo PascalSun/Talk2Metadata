@@ -21,22 +21,64 @@ def sanitize_run_id(run_id: str) -> str:
     return re.sub(r"[^\w\-_.]", "_", str(run_id))
 
 
+def get_run_id_from_config(config=None) -> Optional[str]:
+    """Get run_id from config, supporting both simple and extended formats.
+
+    Supports:
+    - Simple format: run_id: "wamex_run"
+    - Extended format: run: { id: "wamex_run", ... }
+
+    Args:
+        config: Optional config instance. If None, uses get_config()
+
+    Returns:
+        Run ID string or None
+    """
+    if config is None:
+        config = get_config()
+
+    # Try extended format first: run.id
+    run_config = config.get("run", {})
+    if isinstance(run_config, dict) and "id" in run_config:
+        return run_config["id"]
+
+    # Fall back to simple format: run_id
+    return config.get("run_id")
+
+
 def get_run_base_dir(
-    run_id: Optional[str] = None, base_dir: Optional[Path] = None
+    run_id: Optional[str] = None, base_dir: Optional[Path] = None, config=None
 ) -> Path:
     """Get base directory for a run_id.
 
-    If run_id is provided, returns data/{run_id}/, otherwise returns data/.
+    If run_id is provided, returns {output_dir}/{run_id}/, otherwise returns {output_dir}/.
+    Can read output_dir from config.run.output_dir or base_dir from config.run.base_dir.
 
     Args:
         run_id: Optional run ID. If None, uses default data directory structure.
-        base_dir: Optional base directory. Defaults to "./data"
+        base_dir: Optional base directory. If None, tries to read from config.run.output_dir
+                  or config.run.base_dir, otherwise defaults to "./data"
+        config: Optional config instance. If None, uses get_config()
 
     Returns:
         Path to run base directory
     """
     if base_dir is None:
-        base_dir = Path("./data")
+        if config is None:
+            from talk2metadata.utils.config import get_config
+
+            config = get_config()
+        # Try to get output_dir or base_dir from run config
+        run_config = config.get("run", {})
+        if isinstance(run_config, dict):
+            # Prefer output_dir over base_dir
+            output_dir_str = run_config.get("output_dir") or run_config.get("base_dir")
+            if output_dir_str:
+                base_dir = Path(output_dir_str)
+            else:
+                base_dir = Path("./data")
+        else:
+            base_dir = Path("./data")
 
     if run_id:
         run_id_safe = sanitize_run_id(run_id)
@@ -58,7 +100,11 @@ def get_metadata_dir(run_id: Optional[str] = None, config=None) -> Path:
         config = get_config()
 
     if run_id:
-        run_base = get_run_base_dir(run_id)
+        # Check for custom metadata_dir in run config
+        run_config = config.get("run", {})
+        if isinstance(run_config, dict) and "metadata_dir" in run_config:
+            return Path(run_config["metadata_dir"])
+        run_base = get_run_base_dir(run_id, config=config)
         return run_base / "metadata"
     else:
         return Path(config.get("data.metadata_dir", "./data/metadata"))
@@ -78,7 +124,11 @@ def get_processed_dir(run_id: Optional[str] = None, config=None) -> Path:
         config = get_config()
 
     if run_id:
-        run_base = get_run_base_dir(run_id)
+        # Check for custom processed_dir in run config
+        run_config = config.get("run", {})
+        if isinstance(run_config, dict) and "processed_dir" in run_config:
+            return Path(run_config["processed_dir"])
+        run_base = get_run_base_dir(run_id, config=config)
         return run_base / "processed"
     else:
         return Path(config.get("data.processed_dir", "./data/processed"))
@@ -98,7 +148,11 @@ def get_indexes_dir(run_id: Optional[str] = None, config=None) -> Path:
         config = get_config()
 
     if run_id:
-        run_base = get_run_base_dir(run_id)
+        # Check for custom indexes_dir in run config
+        run_config = config.get("run", {})
+        if isinstance(run_config, dict) and "indexes_dir" in run_config:
+            return Path(run_config["indexes_dir"])
+        run_base = get_run_base_dir(run_id, config=config)
         return run_base / "indexes"
     else:
         return Path(config.get("data.indexes_dir", "./data/indexes"))
@@ -118,11 +172,73 @@ def get_qa_dir(run_id: Optional[str] = None, config=None) -> Path:
         config = get_config()
 
     if run_id:
-        run_base = get_run_base_dir(run_id)
+        # Check for custom qa_dir in run config
+        run_config = config.get("run", {})
+        if isinstance(run_config, dict) and "qa_dir" in run_config:
+            return Path(run_config["qa_dir"])
+        run_base = get_run_base_dir(run_id, config=config)
         return run_base / "qa"
     else:
         # Default to data/qa if no run_id
         return Path("./data/qa")
+
+
+def get_benchmark_dir(run_id: Optional[str] = None, config=None) -> Path:
+    """Get benchmark directory path for a run_id.
+
+    Args:
+        run_id: Optional run ID. If None, tries to get from config.
+        config: Optional config instance. If None, uses get_config()
+
+    Returns:
+        Path to benchmark directory
+    """
+    if config is None:
+        config = get_config()
+
+    # Use run_id from config if not provided
+    if run_id is None:
+        run_id = get_run_id_from_config(config)
+
+    if run_id:
+        # Check for custom benchmark_dir in run config
+        run_config = config.get("run", {})
+        if isinstance(run_config, dict) and "benchmark_dir" in run_config:
+            return Path(run_config["benchmark_dir"])
+        run_base = get_run_base_dir(run_id, config=config)
+        return run_base / "benchmark"
+    else:
+        # Default to data/benchmark if no run_id in config either
+        return Path("./data/benchmark")
+
+
+def get_db_dir(run_id: Optional[str] = None, config=None) -> Path:
+    """Get database directory path for a run_id.
+
+    Args:
+        run_id: Optional run ID. If None, tries to get from config.
+        config: Optional config instance. If None, uses get_config()
+
+    Returns:
+        Path to database directory
+    """
+    if config is None:
+        config = get_config()
+
+    # Use run_id from config if not provided
+    if run_id is None:
+        run_id = get_run_id_from_config(config)
+
+    if run_id:
+        # Check for custom db_dir in run config
+        run_config = config.get("run", {})
+        if isinstance(run_config, dict) and "db_dir" in run_config:
+            return Path(run_config["db_dir"])
+        run_base = get_run_base_dir(run_id, config=config)
+        return run_base / "db"
+    else:
+        # Default to data/db if no run_id in config either
+        return Path("./data/db")
 
 
 def find_schema_file(metadata_dir: Path, target_table: Optional[str] = None) -> Path:

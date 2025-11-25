@@ -169,7 +169,9 @@ class QueryBuilder:
         if failure_reasons:
             # Show unique failure reasons (limit to most common)
             # Prefer errors that contain detailed explanations
-            detailed_reasons = [r for r in failure_reasons if " - " in r or "because:" in r]
+            detailed_reasons = [
+                r for r in failure_reasons if " - " in r or "because:" in r
+            ]
             if detailed_reasons:
                 # Use the most detailed reason, clean up "because:" to " - "
                 most_detailed = detailed_reasons[0].replace("because:", "-")
@@ -177,16 +179,18 @@ class QueryBuilder:
             else:
                 unique_reasons = list(set(failure_reasons))[:2]
                 reason_parts.append(f"issues: {', '.join(unique_reasons)}")
-        
+
         if no_result_count > 0:
             # Provide professional analysis for empty results
             analysis = self._analyze_empty_result_reason(
                 strategy, last_attempt_info, no_result_count
             )
             reason_parts.append(analysis)
-        
+
         if validation_failed_count > 0:
-            reason_parts.append(f"{validation_failed_count} attempts failed validation checks")
+            reason_parts.append(
+                f"{validation_failed_count} attempts failed validation checks"
+            )
 
         reason_str = f" ({'; '.join(reason_parts)})" if reason_parts else ""
 
@@ -412,9 +416,7 @@ class QueryBuilder:
 
         reason_str = f" - {', '.join(reason_parts)}" if reason_parts else ""
 
-        raise ValueError(
-            f"Unable to generate {hops}-hop chain query{reason_str}"
-        )
+        raise ValueError(f"Unable to generate {hops}-hop chain query{reason_str}")
 
     def _generate_star_joins(self, branches: int) -> List[JoinPath]:
         """Generate star JOIN paths (intersection pattern).

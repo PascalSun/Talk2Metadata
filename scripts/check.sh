@@ -103,7 +103,7 @@ if [ -d "data/raw" ]; then
     fi
 
     echo -e "${YELLOW}>> Building search index...${NC}"
-    if uv run talk2metadata search index; then
+    if uv run talk2metadata search prepare; then
         print_success "Index built"
     else
         print_error "Indexing failed"
