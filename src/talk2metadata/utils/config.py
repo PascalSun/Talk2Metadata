@@ -94,6 +94,10 @@ class Config:
                     "modes": [],  # List of modes to compare (empty = all enabled)
                 },
             },
+            "search": {
+                "output_format": "text",  # Output format: "text" or "json"
+                "show_score": False,  # Show similarity scores in results
+            },
         }
 
     @classmethod
