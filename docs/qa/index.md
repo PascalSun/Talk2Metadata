@@ -66,7 +66,7 @@ Talk2Metadata uses a systematic difficulty classification based on Query Graph p
 | **2iE** | 2-way star, Easy | "Find orders: Healthcare customers × Software products" |
 | **3iM** | 3-way star, Medium | "Find orders: Healthcare customers × Enterprise software × Senior sales" |
 
-**See [Difficulty Classification](./difficulty-classification.md) for complete specification.**
+**See [Difficulty Classification](./difficulty-classification.md) for complete specification**, which includes interactive visual diagrams of all query patterns.
 
 ## Usage
 
