@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 from pathlib import Path
 from typing import Any, Dict
@@ -310,6 +311,495 @@ def _display_search_results(
 
         out.section("=" * 80)
         out.success(f"Retrieved {len(results)} records")
+
+
+def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> None:
+    """Generate HTML visualization of evaluation results.
+
+    Args:
+        eval_data: Evaluation results dictionary from JSON
+        output_path: Path to save HTML file
+    """
+    timestamp = eval_data.get("timestamp", "Unknown")
+    total_qa_pairs = eval_data.get("total_qa_pairs", 0)
+    modes_evaluated = eval_data.get("modes_evaluated", [])
+    modes_summary = eval_data.get("modes", {})
+    detailed_results = eval_data.get("detailed_results", {})
+
+    html_parts = []
+    html_parts.append(
+        f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Results</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }}
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+        }}
+        h1 {{
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }}
+        .meta {{
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }}
+        .summary {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+        .summary-card {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }}
+        .summary-card h3 {{
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .summary-card .value {{
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }}
+        .tabs {{
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }}
+        .tab {{
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }}
+        .tab:hover {{
+            color: #007bff;
+            background: #f8f9fa;
+        }}
+        .tab.active {{
+            color: #007bff;
+            border-bottom-color: #007bff;
+            font-weight: 600;
+        }}
+        .tab-content {{
+            display: none;
+        }}
+        .tab-content.active {{
+            display: block;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+        }}
+        thead {{
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+        }}
+        th {{
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+        }}
+        td {{
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: top;
+        }}
+        tbody tr:hover {{
+            background: #f8f9fa;
+        }}
+        .status-correct {{
+            color: #28a745;
+            font-weight: 600;
+        }}
+        .status-incorrect {{
+            color: #dc3545;
+            font-weight: 600;
+        }}
+        .status-exact {{
+            color: #007bff;
+            font-weight: 600;
+        }}
+        .sql-code {{
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            max-width: 500px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }}
+        .question {{
+            max-width: 400px;
+            line-height: 1.5;
+        }}
+        .error {{
+            color: #dc3545;
+            font-size: 12px;
+            font-style: italic;
+        }}
+        .metrics {{
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+        }}
+        .metric {{
+            padding: 4px 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }}
+        .filter-bar {{
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }}
+        .filter-bar label {{
+            font-weight: 600;
+            color: #333;
+        }}
+        .filter-bar select {{
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }}
+        .badge {{
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }}
+        .badge-strategy {{
+            background: #e3f2fd;
+            color: #1976d2;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Evaluation Results</h1>
+        <div class="meta">
+            <strong>Timestamp:</strong> {timestamp} |
+            <strong>Total QA Pairs:</strong> {total_qa_pairs} |
+            <strong>Modes:</strong> {", ".join(modes_evaluated)}
+        </div>
+"""
+    )
+
+    # Summary cards
+    html_parts.append('<div class="summary">')
+    for mode_name, mode_data in modes_summary.items():
+        accuracy = mode_data.get("accuracy", 0.0) * 100
+        f1 = mode_data.get("f1", 0.0) * 100
+        correct = mode_data.get("correct_predictions", 0)
+        total = mode_data.get("total_questions", 0)
+
+        html_parts.append(
+            f"""
+        <div class="summary-card">
+            <h3>{mode_name}</h3>
+            <div class="value">{accuracy:.1f}%</div>
+            <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                Accuracy: {correct}/{total} | F1: {f1:.2f}%
+            </div>
+        </div>
+        """
+        )
+    html_parts.append("</div>")
+
+    # Tabs for each mode
+    html_parts.append('<div class="tabs">')
+    for idx, mode_name in enumerate(modes_evaluated):
+        active = "active" if idx == 0 else ""
+        html_parts.append(
+            f'<button class="tab {active}" onclick="showTab(\'{mode_name}\')">{mode_name}</button>'
+        )
+    html_parts.append("</div>")
+
+    # Tab contents
+    for idx, mode_name in enumerate(modes_evaluated):
+        active = "active" if idx == 0 else ""
+        mode_data = modes_summary.get(mode_name, {})
+        mode_results = detailed_results.get(mode_name, [])
+
+        html_parts.append(f'<div id="tab-{mode_name}" class="tab-content {active}">')
+        html_parts.append(f"<h2>{mode_name} - Detailed Results</h2>")
+
+        # Collect unique strategies for filter
+        strategies = set()
+        for result in mode_results:
+            if result.get("strategy"):
+                strategies.add(result["strategy"])
+
+        # Filter bar
+        html_parts.append(
+            """
+        <div class="filter-bar">
+            <label>Filter by Status:</label>
+            <select id="filter-status-{}" onchange="filterTable('{}')">
+                <option value="all">All</option>
+                <option value="correct">Correct</option>
+                <option value="incorrect">Incorrect</option>
+                <option value="exact">Exact Match</option>
+            </select>
+            <label>Filter by Strategy:</label>
+            <select id="filter-strategy-{}" onchange="filterTable('{}')">
+                <option value="all">All</option>
+            </select>
+        </div>
+        """.format(
+                mode_name, mode_name, mode_name, mode_name
+            )
+        )
+
+        # Add strategy options
+        html_parts.append("<script>")
+        html_parts.append(
+            f"const strategies_{mode_name} = {json.dumps(sorted(list(strategies)))};"
+        )
+        html_parts.append(
+            f"""
+        (function() {{
+            const filterSelect = document.querySelector('#filter-strategy-{mode_name}');
+            if (filterSelect) {{
+                strategies_{mode_name}.forEach(s => {{
+                    const option = document.createElement('option');
+                    option.value = s;
+                    option.textContent = s;
+                    filterSelect.appendChild(option);
+                }});
+            }}
+        }})();
+        """
+        )
+        html_parts.append("</script>")
+
+        # Table
+        html_parts.append(f'<table id="table-{mode_name}">')
+        html_parts.append(
+            """
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Question</th>
+                <th>Status</th>
+                <th>Strategy</th>
+                <th>Expected IDs</th>
+                <th>Predicted IDs</th>
+                <th>Generated SQL</th>
+                <th>Expected SQL</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+        """
+        )
+
+        for result_idx, result in enumerate(mode_results, 1):
+            question = result.get("question", "")
+            correct = result.get("correct", False)
+            is_exact = result.get("is_exact_match", False)
+            strategy = result.get("strategy", "N/A")
+            expected_ids = result.get("expected_row_ids", [])
+            predicted_ids = result.get("predicted_row_ids", [])
+            generated_sql = result.get("generated_sql", "")
+            expected_sql = result.get("expected_sql", "")
+            error_msg = result.get("error_message", "")
+
+            # Status class
+            if is_exact:
+                status_class = "status-exact"
+                status_text = "✓ Exact"
+            elif correct:
+                status_class = "status-correct"
+                status_text = "✓ Correct"
+            else:
+                status_class = "status-incorrect"
+                status_text = "✗ Incorrect"
+
+            # Truncate and escape HTML
+            question_display = (
+                question[:150] + "..." if len(question) > 150 else question
+            )
+            question_display = html.escape(question_display)
+            generated_sql_display = html.escape(
+                generated_sql[:200] if generated_sql else "N/A"
+            )
+            if generated_sql and len(generated_sql) > 200:
+                generated_sql_display += "..."
+            expected_sql_display = html.escape(
+                expected_sql[:200] if expected_sql else "N/A"
+            )
+            if expected_sql and len(expected_sql) > 200:
+                expected_sql_display += "..."
+            error_display = html.escape(error_msg[:100] if error_msg else "")
+
+            html_parts.append(
+                f"""
+            <tr data-status="{'correct' if correct else 'incorrect'}" data-exact="{'exact' if is_exact else 'no'}" data-strategy="{html.escape(str(strategy))}">
+                <td>{result_idx}</td>
+                <td class="question">{question_display}</td>
+                <td><span class="{status_class}">{status_text}</span></td>
+                <td><span class="badge badge-strategy">{html.escape(str(strategy))}</span></td>
+                <td>{len(expected_ids)} IDs: {html.escape(str(expected_ids[:5]))}{'...' if len(expected_ids) > 5 else ''}</td>
+                <td>{len(predicted_ids)} IDs: {html.escape(str(predicted_ids[:5]))}{'...' if len(predicted_ids) > 5 else ''}</td>
+                <td><div class="sql-code">{generated_sql_display}</div></td>
+                <td><div class="sql-code">{expected_sql_display}</div></td>
+                <td class="error">{error_display}</td>
+            </tr>
+            """
+            )
+
+        html_parts.append("</tbody></table>")
+        html_parts.append("</div>")
+
+    # JavaScript for tabs and filtering
+    html_parts.append(
+        """
+    <script>
+        function showTab(modeName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Show selected tab
+            event.target.classList.add('active');
+            document.getElementById('tab-' + modeName).classList.add('active');
+        }
+
+        function filterTable(modeName) {
+            const statusFilter = document.getElementById('filter-status-' + modeName).value;
+            const strategyFilter = document.getElementById('filter-strategy-' + modeName).value;
+            const table = document.getElementById('table-' + modeName);
+            const rows = table.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                const status = row.dataset.status;
+                const exact = row.dataset.exact;
+                const strategy = row.dataset.strategy;
+
+                let show = true;
+
+                if (statusFilter === 'correct' && status !== 'correct') show = false;
+                if (statusFilter === 'incorrect' && status !== 'incorrect') show = false;
+                if (statusFilter === 'exact' && exact !== 'exact') show = false;
+                if (strategyFilter !== 'all' && strategy !== strategyFilter) show = false;
+
+                row.style.display = show ? '' : 'none';
+            });
+        }
+    </script>
+    </body>
+    </html>
+    """
+    )
+
+    html_content = "".join(html_parts)
+    output_path.write_text(html_content, encoding="utf-8")
+
+
+@search_group.command(name="evaluate-vis")
+@click.option(
+    "--eval-results",
+    "-e",
+    "eval_results_path",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to evaluation results JSON file",
+)
+@click.option(
+    "--output",
+    "-o",
+    "output_path",
+    type=click.Path(),
+    default=None,
+    help="Output path for HTML file (default: same directory as input with .html extension)",
+)
+@handle_errors
+def evaluate_vis_cmd(eval_results_path, output_path):
+    """Generate HTML visualization from evaluation results.
+
+    This command reads evaluation results JSON and generates an interactive HTML table
+    for easy review and analysis.
+
+    \b
+    Examples:
+        # Generate HTML from evaluation results
+        talk2metadata search evaluate-vis --eval-results ./evaluation.json
+
+        # Specify output path
+        talk2metadata search evaluate-vis --eval-results ./evaluation.json --output ./report.html
+    """
+    eval_results_path = Path(eval_results_path)
+
+    if not eval_results_path.exists():
+        out.error(f"Evaluation results file not found: {eval_results_path}")
+        raise click.Abort()
+
+    # Load evaluation data
+    try:
+        with open(eval_results_path, "r") as f:
+            eval_data = json.load(f)
+    except json.JSONDecodeError as e:
+        out.error(f"Invalid JSON file: {e}")
+        raise click.Abort()
+
+    # Determine output path
+    if output_path:
+        html_output = Path(output_path)
+    else:
+        html_output = eval_results_path.with_suffix(".html")
+
+    # Generate HTML
+    _generate_evaluation_html(eval_data, html_output)
+
+    out.success(f"📊 HTML visualization generated: {html_output}")
+    out.info(f"Open {html_output} in your browser to view the results")
 
 
 @search_group.command(name="retrieve")
