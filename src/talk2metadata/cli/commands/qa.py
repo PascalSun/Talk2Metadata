@@ -126,6 +126,75 @@ def qa_generate_cmd(
     # Generate QA pairs
     handler = QAHandler(config)
 
+    # Analyze strategy capabilities
+    out.section("📋 Analyzing schema capabilities...")
+    analysis = handler.analyze_strategy_capabilities(schema)
+    capabilities = analysis["capabilities"]
+    config_check = analysis["config_check"]
+
+    # Show schema info
+    schema_info = capabilities["schema_info"]
+    out.stats(
+        {
+            "Target table": schema_info["target_table"],
+            "Target table columns": schema_info["target_table_columns"],
+            "Target table foreign keys": schema_info["target_table_fks"],
+            "Total tables": schema_info["total_tables"],
+            "Total foreign keys": schema_info["total_foreign_keys"],
+        }
+    )
+
+    # Show supported strategies
+    supported = capabilities["supported_strategies"]
+    unsupported = capabilities["unsupported_strategies"]
+    out.section("✅ Supported strategies:")
+    if supported:
+        # Group by tier for better display
+        from talk2metadata.core.qa import DifficultyClassifier
+
+        classifier = DifficultyClassifier()
+        by_tier = {}
+        for strategy in supported:
+            tier = classifier.get_tier(strategy)
+            if tier not in by_tier:
+                by_tier[tier] = []
+            by_tier[tier].append(strategy)
+
+        for tier in ["easy", "medium", "hard", "expert"]:
+            if tier in by_tier:
+                strategies_str = ", ".join(sorted(by_tier[tier]))
+                out.info(f"   {tier.capitalize()}: {strategies_str}")
+    else:
+        out.warning("   No strategies are supported!")
+
+    # Show unsupported strategies if any
+    if unsupported:
+        out.section("❌ Unsupported strategies:")
+        reasons = capabilities["reasons"]
+        for strategy in sorted(unsupported):
+            reason = reasons.get(strategy, "Unknown reason")
+            out.warning(f"   {strategy}: {reason}")
+
+    # Check configured strategies
+    if config_check["configured_strategies"]:
+        out.section("⚙️  Configuration check:")
+        feasible = config_check["feasible_strategies"]
+        infeasible = config_check["infeasible_strategies"]
+
+        if feasible:
+            out.success(f"   ✅ {len(feasible)} configured strategies are feasible")
+            if len(feasible) <= 10:
+                out.info(f"      {', '.join(feasible)}")
+
+        if infeasible:
+            out.warning(
+                f"   ⚠️  {len(infeasible)} configured strategies are NOT feasible:"
+            )
+            reasons = config_check["reasons"]
+            for strategy in sorted(infeasible):
+                reason = reasons.get(strategy, "Unknown reason")
+                out.warning(f"      {strategy}: {reason}")
+
     # Get parameters
     total_qa_pairs = total or config.get("qa_generation.total_qa_pairs", 100)
     do_validate = (

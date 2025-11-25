@@ -17,6 +17,7 @@ from talk2metadata.core.qa.difficulty_classifier import (
 )
 from talk2metadata.core.qa.generator import QAGenerator
 from talk2metadata.core.qa.qa_pair import QAPair
+from talk2metadata.core.qa.strategy_analyzer import StrategyAnalyzer
 from talk2metadata.core.qa.strategy_selector import StrategySelector
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     "DifficultyLevel",
     "PatternType",
     "QueryPlan",
+    "StrategyAnalyzer",
     "StrategySelector",
 ]

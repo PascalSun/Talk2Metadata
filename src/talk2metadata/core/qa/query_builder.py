@@ -87,6 +87,11 @@ class QueryBuilder:
         Returns:
             QuerySpec object, or None if generation failed
         """
+        failure_reasons = []
+        no_result_count = 0
+        validation_failed_count = 0
+        last_attempt_info = None  # Store info from last attempt for analysis
+
         for attempt in range(max_attempts):
             try:
                 # Parse strategy
@@ -106,6 +111,17 @@ class QueryBuilder:
 
                 # Check if we got valid results
                 if not answer_row_ids or len(answer_row_ids) == 0:
+                    no_result_count += 1
+                    # Store info from this attempt for later analysis
+                    involved_tables = self._get_involved_tables(join_paths)
+                    last_attempt_info = {
+                        "pattern": pattern,
+                        "difficulty": difficulty,
+                        "join_paths": join_paths,
+                        "filters": filters,
+                        "involved_tables": involved_tables,
+                        "num_filters": len(filters),
+                    }
                     logger.debug("Query returned no results, retrying...")
                     continue
 
@@ -130,15 +146,117 @@ class QueryBuilder:
                         f"Successfully generated query for {strategy} with {len(answer_row_ids)} results"
                     )
                     return query_spec
+                else:
+                    validation_failed_count += 1
 
+            except ValueError as e:
+                # These are expected errors (e.g., cannot build chain, no foreign keys)
+                error_msg = str(e)
+                if error_msg not in failure_reasons:
+                    failure_reasons.append(error_msg)
+                logger.debug(f"Attempt {attempt + 1} failed: {e}")
+                continue
             except Exception as e:
+                # Unexpected errors
+                error_msg = f"Unexpected error: {str(e)}"
+                if error_msg not in failure_reasons:
+                    failure_reasons.append(error_msg)
                 logger.debug(f"Attempt {attempt + 1} failed: {e}")
                 continue
 
+        # Build failure message with reasons in plain language
+        reason_parts = []
+        if failure_reasons:
+            # Show unique failure reasons (limit to most common)
+            # Prefer errors that contain detailed explanations
+            detailed_reasons = [r for r in failure_reasons if " - " in r or "because:" in r]
+            if detailed_reasons:
+                # Use the most detailed reason, clean up "because:" to " - "
+                most_detailed = detailed_reasons[0].replace("because:", "-")
+                reason_parts.append(most_detailed)
+            else:
+                unique_reasons = list(set(failure_reasons))[:2]
+                reason_parts.append(f"issues: {', '.join(unique_reasons)}")
+        
+        if no_result_count > 0:
+            # Provide professional analysis for empty results
+            analysis = self._analyze_empty_result_reason(
+                strategy, last_attempt_info, no_result_count
+            )
+            reason_parts.append(analysis)
+        
+        if validation_failed_count > 0:
+            reason_parts.append(f"{validation_failed_count} attempts failed validation checks")
+
+        reason_str = f" ({'; '.join(reason_parts)})" if reason_parts else ""
+
         logger.warning(
-            f"Failed to generate query for strategy {strategy} after {max_attempts} attempts"
+            f"Unable to generate query for strategy {strategy} after {max_attempts} attempts{reason_str}"
         )
         return None
+
+    def _analyze_empty_result_reason(
+        self, strategy: str, last_attempt_info: Optional[Dict], no_result_count: int
+    ) -> str:
+        """Analyze why queries returned empty results and provide professional error message.
+
+        Args:
+            strategy: Strategy code
+            last_attempt_info: Information from last attempt (if available)
+            no_result_count: Number of attempts that returned no results
+
+        Returns:
+            Professional error message explaining the failure
+        """
+        if not last_attempt_info:
+            return f"all {no_result_count} attempts returned empty result sets"
+
+        pattern = last_attempt_info.get("pattern", "")
+        num_filters = last_attempt_info.get("num_filters", 0)
+        involved_tables = last_attempt_info.get("involved_tables", [])
+
+        # Analyze the pattern in plain language
+        if pattern[-1] == "i":
+            # Intersection pattern
+            branches = int(pattern[0]) if pattern[0].isdigit() else 0
+            analysis_parts = [
+                f"all {no_result_count} attempts returned no results",
+                f"query requires connecting {branches} different tables to find matching records",
+            ]
+            if num_filters > 0:
+                analysis_parts.append(
+                    f"but no records satisfy all {num_filters} filter conditions at the same time"
+                )
+            else:
+                analysis_parts.append(
+                    "but the table connections don't match any records in the data"
+                )
+        elif pattern[-1] == "p":
+            # Path pattern
+            hops = int(pattern[0]) if pattern[0].isdigit() else 0
+            analysis_parts = [
+                f"all {no_result_count} attempts returned no results",
+                f"query requires following a {hops}-step path through {len(involved_tables)} connected tables",
+            ]
+            if num_filters > 0:
+                analysis_parts.append(
+                    f"but no records satisfy all {num_filters} filter conditions along this path"
+                )
+            else:
+                analysis_parts.append(
+                    "but this connection path doesn't match any records in the data"
+                )
+        else:
+            # Direct query
+            analysis_parts = [
+                f"all {no_result_count} attempts returned no results",
+            ]
+            if num_filters > 0:
+                analysis_parts.append(
+                    f"no records satisfy all {num_filters} filter conditions"
+                )
+
+        return "; ".join(analysis_parts)
 
     def _parse_strategy(self, strategy: str) -> Tuple[str, str]:
         """Parse strategy into pattern and difficulty.
@@ -191,9 +309,16 @@ class QueryBuilder:
 
         Returns:
             List of JoinPath objects representing the chain
+
+        Raises:
+            ValueError: If chain cannot be generated with detailed reason
         """
         # Try multiple attempts to build a valid chain
         max_attempts = 5
+        failure_reasons = []
+        no_fk_count = 0
+        cycle_count = 0
+
         for attempt in range(max_attempts):
             try:
                 # Build a chain from target table
@@ -213,8 +338,10 @@ class QueryBuilder:
                         )
 
                     if not fks:
+                        no_fk_count += 1
                         raise ValueError(
-                            f"No foreign keys found for table {current_table}"
+                            f"No foreign keys found for table {current_table} "
+                            f"(at hop {hop + 1}/{hops})"
                         )
 
                     # Filter out FKs that would create cycles
@@ -229,9 +356,10 @@ class QueryBuilder:
                             valid_fks.append(fk)
 
                     if not valid_fks:
+                        cycle_count += 1
                         raise ValueError(
                             f"No valid FKs to continue chain from {current_table} "
-                            f"(all would create cycles)"
+                            f"(all would create cycles, at hop {hop + 1}/{hops})"
                         )
 
                     # Randomly select one valid FK
@@ -250,11 +378,42 @@ class QueryBuilder:
                 return [JoinPath(tables=path_tables, join_type="chain")]
 
             except ValueError as e:
+                error_msg = str(e)
+                if error_msg not in failure_reasons:
+                    failure_reasons.append(error_msg)
                 logger.debug(f"Chain generation attempt {attempt + 1} failed: {e}")
                 continue
 
+        # Build detailed error message in plain language
+        reason_parts = []
+        if no_fk_count > 0:
+            reason_parts.append(
+                f"cannot find enough table relationships to build a {hops}-hop chain "
+                f"(tried {no_fk_count} times but no valid connections found)"
+            )
+        elif cycle_count > 0:
+            reason_parts.append(
+                f"all possible table connection paths would create circular references "
+                f"(tried {cycle_count} different paths, all would loop back to previous tables)"
+            )
+        elif failure_reasons:
+            # Show the most common failure reason
+            most_common = max(set(failure_reasons), key=failure_reasons.count)
+            if "No foreign keys" in most_common:
+                reason_parts.append(
+                    f"cannot find enough table relationships to build a {hops}-hop chain"
+                )
+            elif "cycles" in most_common:
+                reason_parts.append(
+                    "all possible table connection paths would create circular references"
+                )
+            else:
+                reason_parts.append(most_common)
+
+        reason_str = f" - {', '.join(reason_parts)}" if reason_parts else ""
+
         raise ValueError(
-            f"Failed to generate {hops}-hop chain after {max_attempts} attempts"
+            f"Unable to generate {hops}-hop chain query{reason_str}"
         )
 
     def _generate_star_joins(self, branches: int) -> List[JoinPath]:
@@ -273,8 +432,9 @@ class QueryBuilder:
 
         if len(fks) < branches:
             raise ValueError(
-                f"Target table {self.target_table} has only {len(fks)} foreign keys, "
-                f"but {branches} branches are required"
+                f"Cannot generate {branches}-way intersection because target table "
+                f"'{self.target_table}' has only {len(fks)} foreign key relationship(s), "
+                f"but {branches} are required"
             )
 
         # Randomly select branches

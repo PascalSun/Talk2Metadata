@@ -961,14 +961,6 @@ For a balanced QA dataset suitable for training and evaluation:
 | **Hard**   | 15%      | 2pE (3%), 2pM (3%), 2iE (3%), 2iM (3%), 2iH (3%) |
 | **Expert** | 5%       | 3pE (2%), 3iE (2%), 3iM (1%)                     |
 
-### Progressive Distribution
-
-For training models with curriculum learning:
-
-**Phase 1 (Weeks 1-2)**: 80% Easy, 20% Medium
-**Phase 2 (Weeks 3-4)**: 40% Easy, 50% Medium, 10% Hard
-**Phase 3 (Weeks 5+)**: 20% Easy, 40% Medium, 30% Hard, 10% Expert
-
 ---
 
 ## Theoretical Foundation
@@ -1105,50 +1097,3 @@ Update the scoring formula accordingly (+0.2, +0.4, +0.6, +0.8).
 - Optionality affects result cardinality, not reasoning complexity
 
 ---
-
-## References
-
-### Academic Papers
-
-1. **Query2box: Reasoning over Knowledge Graphs using Box Embeddings**
-   - Ren et al., ICLR 2020
-   - Introduced path/intersection query notation
-
-2. **Spider: A Large-Scale Human-Labeled Dataset for Complex and Cross-Domain Semantic Parsing and Text-to-SQL Task**
-   - Yu et al., EMNLP 2018
-   - SQL complexity metrics for text-to-SQL
-
-3. **KaggleDBQA: Realistic Large-Scale Database Question Answering**
-   - Lee et al., NeurIPS 2021
-   - Real-world database QA benchmarks
-
-### Related Systems
-
-- **Talk2Metadata**: Semantic search for relational databases (this project)
-- **WikiSQL**: Simple table QA (single table focus)
-- **Spider**: Complex SQL generation (aggregation/subquery focus)
-- **KGQA**: Knowledge Graph Question Answering (graph reasoning focus)
-
----
-
-## Changelog
-
-### Version 1.0 (2025-11-24)
-
-- Initial difficulty classification system
-- Pattern types: 0, 1p, 2p, 2i, 3p, 3i, 4i
-- Difficulty levels: E, M, H
-- Scoring formula: base + modifier
-- Complete documentation and examples
-
----
-
-## License
-
-This specification is part of the Talk2Metadata project.
-
----
-
-## Contact
-
-For questions or suggestions regarding this classification system, please open an issue in the Talk2Metadata repository.

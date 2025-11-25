@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from talk2metadata.core.qa import QAGenerator, QAPair
+from talk2metadata.core.qa import QAGenerator, QAPair, StrategyAnalyzer
 from talk2metadata.core.schema import SchemaMetadata
 from talk2metadata.utils.config import Config
 from talk2metadata.utils.paths import get_qa_dir
@@ -165,4 +165,34 @@ class QAHandler:
             "invalid": len(qa_pairs) - valid_count,
             "strategies": strategy_stats,
             "tiers": tier_stats,
+        }
+
+    def analyze_strategy_capabilities(
+        self,
+        schema: SchemaMetadata,
+    ) -> Dict[str, any]:
+        """Analyze schema capabilities and check configured strategies.
+
+        Args:
+            schema: Schema metadata
+
+        Returns:
+            Dictionary with analysis results
+        """
+        qa_config = self.config.get("qa_generation", {})
+        strategy_weights = qa_config.get("strategy_weights")
+        tier_weights = qa_config.get("tier_weights")
+
+        # Analyze schema capabilities
+        analyzer = StrategyAnalyzer(schema)
+        capabilities = analyzer.analyze_schema_capabilities()
+
+        # Check configured strategies
+        config_check = analyzer.check_config_strategies(
+            strategy_weights=strategy_weights, tier_weights=tier_weights
+        )
+
+        return {
+            "capabilities": capabilities,
+            "config_check": config_check,
         }
