@@ -1,103 +1,92 @@
+
 # Talk2Metadata
 
-**Question-driven multi-table record retrieval system**
+**Talk to your metadata**
 
-Talk2Metadata enables semantic search over relational databases using natural language queries. It automatically detects table relationships, creates rich embeddings with joined data, and provides fast similarity search using FAISS.
+
+<div align="center">
+
+<img src="assets/favicon/android-chrome-512x512.png" alt="Talk2Metadata Logo" width="128" height="128">
+
+</div>
+
+Talk2Metadata is an end-to-end system for semantic search over structured metadata. The system:
+
+1. **Takes input**: A target table and related FK tables (CSV files or databases)
+2. **Detects schema**: Automatically identifies star schema structure
+3. **Generates QA**: Creates evaluation questions based on difficulty classification
+4. **Evaluates strategies**: Tests different indexing and retrieval approaches
+5. **Finds best solution**: Selects optimal strategy based on evaluation results
+
+## Context Example
+
+Given metadata with a star schema structure:
+
+**Target table: `orders`**
+
+```
+| id  | customer_id | product_id | amount | status    |
+| --- | ----------- | ---------- | ------ | --------- |
+| 1   | 1           | 101        | 50000  | completed |
+| 2   | 2           | 102        | 30000  | pending   |
+```
+
+**Related FK tables: `customers`, `products`**
+
+```
+customers:          products:
+| id  | name | industry    id | name | category |
+| --- | ---- | -------------- | ---- | -------- ||
+| 1   | Acme     | Healthcare  101 | Analytics | Software |
+| 2   | TechCorp | Technology  102 | Platform  | Software |
+```
+
+The system detects `orders.customer_id -> customers.id` and `orders.product_id -> products.id`, then enables queries like "Find orders from Healthcare customers buying Software products".
 
 ## Key Features
 
-- 🔍 **Semantic Search**: Query your data using natural language instead of SQL
-- 🔗 **Automatic FK Detection**: Infers foreign key relationships from data patterns
-- 📊 **Multi-Table Support**: Automatically joins related tables for rich context
-- 🚀 **Production-Ready**: Clean architecture, comprehensive testing, structured logging
-- 🎯 **Lightweight**: No GPU required, runs efficiently on CPU
-- 🔌 **Flexible Connectors**: Supports CSV files and SQL databases
+- Automatic star schema detection
+- QA generation with difficulty classification
+- Multiple retrieval strategies
+- Automatic evaluation and optimization
 
-## Quick Example
+## Example
+
+Given metadata with a target table `orders` and related tables `customers` and `products`:
 
 ```bash
-# 1. Ingest data from CSV files
-talk2metadata ingest csv ./data/csv --target orders
+# 1. Detect schema (finds: orders -> customers, orders -> products)
+talk2metadata schema ingest csv data/raw --target orders
 
-# 2. Build search index
-talk2metadata index
+# 2. Generate QA pairs (e.g., "Find orders from Healthcare customers")
+talk2metadata search prepare
 
-# 3. Search using natural language
-talk2metadata search "healthcare customers with high revenue"
+
+# 3. Evaluate
+talk2metadata search evaluate
+
+# 3. or directly search
+talk2metadata search "orders from healthcare customers buying software"
 ```
 
-## How It Works
 
-```mermaid
-graph LR
-    A[CSV/Database] --> B[Schema Detection]
-    B --> C[FK Inference]
-    C --> D[Denormalized Text]
-    D --> E[Embeddings]
-    E --> F[FAISS Index]
-    F --> G[Semantic Search]
-```
-
-1. **Ingest**: Load data from CSV files or databases
-2. **Detect**: Automatically detect schema and foreign key relationships
-3. **Index**: Generate embeddings with joined table data
-4. **Search**: Query using natural language to find relevant records
-
-## Use Cases
-
-- **Customer Support**: "Find all high-value customers in healthcare who had issues last month"
-- **Sales Analysis**: "Show me recent large orders from technology companies"
-- **Data Exploration**: "What products did customers in Europe purchase?"
-- **Compliance**: "Find all transactions above $100k requiring approval"
-
-## Architecture
-
-Talk2Metadata is built with a modular architecture organized around three core components:
+## Core Modules
 
 ### 🔗 [Schema Detection](schema/index.md)
-
-Automatically understand your database structure:
-- **Foreign Key Detection**: Rule-based and AI-powered relationship discovery
-- **Primary Key Inference**: Identify primary keys from data patterns
-- **Schema Metadata**: Extract comprehensive table and column information
-- **Hybrid Approach**: Combine heuristics with LLM-based semantic analysis
-
-### 🎯 [QA Generation](qa/index.md)
-
-Generate training data for record localization:
-- **Multi-Level Difficulty**: From Easy (0E) to Expert (4iH)
-- **Pattern Types**: Support both chain (path) and star (intersection) queries
-- **SQL + Ground Truth**: Generate questions with executable SQL and expected results
-- **[Difficulty Classification](qa/difficulty-classification.md)**: Systematic framework based on Query Graph patterns
+Automatically detect foreign key relationships and understand database structure.
 
 ### 🚀 [Retriever](retriever/index.md)
+Index and search database records semantically with hybrid search support.
 
-Index and search database records semantically:
-- **Denormalized Indexing**: Join related tables for rich context
-- **Hybrid Search**: Combine semantic (vector) and keyword (BM25) retrieval
-- **FAISS Integration**: Fast similarity search at scale
-- **Multiple Strategies**: Semantic-only, keyword-only, or hybrid fusion
+### 🎯 [QA Generation](qa/index.md)
+Generate training data for record localization with multi-level difficulty.
 
-### 🔌 Additional Components
+## Getting Started
 
-- **Connectors**: Pluggable data sources (CSV, PostgreSQL, MySQL, SQLite)
-- **CLI**: User-friendly command-line interface
-- **MCP Server**: Model Context Protocol server for AI agent integration
-
-## Next Steps
-
-### Getting Started
 - [Installation Guide](getting-started/installation.md)
 - [Quick Start Tutorial](getting-started/quickstart.md)
 
-### Core Modules
-- [Schema Detection Guide](schema/index.md) - Detect foreign keys and understand your schema
-- [QA Generation Guide](qa/index.md) - Generate training datasets
-- [Retriever Guide](retriever/index.md) - Index and search records
+## Advanced Features
 
-### Advanced Features
 - [MCP Server Quick Start](mcp/quickstart.md)
-- [Utilities & Tools](utils/index.md) - Configuration, logging, performance monitoring
-
-### Monitoring & Performance
-- [Performance Monitoring](utils/monitoring.md) - Benchmarking and latency analysis
+- [Utilities & Tools](utils/index.md)

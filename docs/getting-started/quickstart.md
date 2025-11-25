@@ -5,63 +5,49 @@ This guide will get you up and running with Talk2Metadata in 5 minutes.
 ## Step 1: Install Talk2Metadata
 
 ```bash
-uv sync
+# Clone repository
+git clone https://github.com/PascalSun/Talk2Metadata.git
+cd Talk2Metadata
+
+# Run setup script
+./setup.sh
+
+# Activate environment
+source .venv/bin/activate
 ```
 
-## Step 2: Prepare Sample Data
+The setup script will:
+- Check Python version (3.11+)
+- Install uv package manager if needed
+- Create virtual environment
+- Install Talk2Metadata and dependencies
+- Create project directories
+- Set up configuration files
 
-Use the provided sample data:
-
-```bash
-ls data/raw/
-# customers.csv  orders.csv  products.csv
-```
-
-The sample data includes:
-- **customers**: 10 customers from various industries
-- **products**: 10 products (software and services)
-- **orders**: 20 orders linking customers to products
-
-## Step 3: Ingest Data
-
-Load the CSV files and detect schema:
+## Step 2: Ingest Data
 
 ```bash
-uv run talk2metadata ingest csv data/raw --target orders
+talk2metadata schema ingest csv data/raw --target orders
 ```
 
 This command:
 - Loads all CSV files from `data/raw/`
 - Detects foreign key relationships automatically
-- Marks `orders` as the target table (the table we'll search)
+- Marks `orders` as the target table
 - Saves metadata to `data/metadata/schema.json`
 
-Expected output:
+## Step 3: Generate QA Pairs (Optional)
+
+```bash
+talk2metadata qa generate
 ```
-🔧 Ingesting from csv: data/raw
-   Target table: orders
-📥 Loading tables...
-✓ Loaded 3 tables:
-   - customers: 10 rows, 6 columns
-   - orders: 20 rows, 8 columns
-   - products: 10 rows, 5 columns
-🔍 Detecting schema and foreign keys...
-✓ Schema detection complete:
-   - Tables: 3
-   - Foreign keys: 2
-   Foreign key relationships:
-     - orders.customer_id -> customers.id (coverage: 100.0%)
-     - orders.product_id -> products.id (coverage: 100.0%)
-💾 Saving metadata to data/metadata/schema.json
-✓ Metadata saved successfully
-```
+
+This generates evaluation questions based on difficulty classification for testing retrieval strategies.
 
 ## Step 4: Build Search Index
 
-Generate embeddings and create FAISS index:
-
 ```bash
-uv run talk2metadata index
+talk2metadata search prepare
 ```
 
 This command:
@@ -70,105 +56,21 @@ This command:
 - Creates denormalized text for each row
 - Generates embeddings using sentence-transformers
 - Builds FAISS index for fast search
+- Includes BM25 index for hybrid search
 
-Expected output:
-```
-📄 Loading schema metadata from data/metadata/schema.json
-✓ Loaded schema:
-   - Target table: orders
-   - Tables: 3
-   - Foreign keys: 2
-📥 Loading tables from data/processed/tables.pkl
-✓ Loaded 3 tables
+## Step 5: Evaluate Strategies (Optional)
 
-🤖 Initializing indexer...
-   Model: sentence-transformers/all-MiniLM-L6-v2
-
-🔨 Building search index...
-   This may take a while...
-Creating texts: 100%|████████| 20/20 [00:00<00:00]
-Batches: 100%|████████| 1/1 [00:02<00:00]
-✓ Index built successfully:
-   - Vectors: 20
-   - Dimension: 384
-   - Records: 20
-
-💾 Saving index to data/indexes
-✓ Index saved
+```bash
+talk2metadata search evaluate
 ```
 
-## Step 5: Search for Records
+This evaluates different retrieval strategies and finds the best solution.
 
-Now you can search using natural language:
+## Step 6: Search for Records
 
 ```bash
 # Find healthcare customers
-uv run talk2metadata search "healthcare customers with high revenue"
-
-# Find recent technology orders
-uv run talk2metadata search "orders from technology companies"
-
-# Find specific products
-uv run talk2metadata search "machine learning and AI products"
-
-# Show top 10 results
-uv run talk2metadata search "completed orders" --top-k 10
-
-# JSON output
-uv run talk2metadata search "pending orders" --format json
+talk2metadata search "orders from healthcare customers buying software"
 ```
 
-Example output:
-```
-🔍 Searching: "healthcare customers with high revenue"
-   Top-K: 5
 
-Found 5 results:
-
-================================================================================
-Rank #1
-Table: orders
-Row ID: 1
-
-Data:
-  id: 1001
-  customer_id: 1
-  product_id: 101
-  amount: 50000
-  quantity: 1
-  order_date: 2023-02-01
-  status: completed
-  sales_rep: John Smith
-
-================================================================================
-...
-```
-
-## Using Python API
-
-You can also use Talk2Metadata programmatically:
-
-```python
-from talk2metadata import Retriever
-
-# Load retriever
-retriever = Retriever.from_paths(
-    "data/indexes/index.faiss",
-    "data/indexes/records.pkl"
-)
-
-# Search
-results = retriever.search("healthcare customers", top_k=5)
-
-# Process results
-for result in results:
-    print(f"Rank {result.rank}: {result.data['customer_id']}")
-    print(f"  Amount: ${result.data['amount']:,}")
-    print(f"  Score: {result.score:.4f}")
-```
-
-## Next Steps
-
-- [MCP Quick Start Guide](../mcp/quickstart.md) - Running the MCP server for AI integration
-- [MCP Integration Guide](../mcp/integration.md) - Complete MCP documentation
-- Check `examples/` directory for more Python API usage examples

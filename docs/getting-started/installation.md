@@ -3,126 +3,78 @@
 ## Requirements
 
 - Python 3.11 or 3.12
-- 4GB RAM minimum (for small datasets)
-- 50MB disk space for package
-- Additional space for embeddings model (~80MB)
+- 4GB RAM minimum
 
-## Installation Methods
+## Quick Setup (Recommended)
 
-### Using uv (Recommended)
+**Unix/macOS/Linux/WSL:**
 
-[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver.
+```bash
+# Clone repository
+git clone https://github.com/PascalSun/Talk2Metadata.git
+cd Talk2Metadata
+
+# Run setup script
+./setup.sh          # Basic installation
+./setup.sh --mcp    # With MCP server support
+
+# Activate environment
+source .venv/bin/activate
+```
+
+**Windows:**
+
+```bash
+# Clone repository
+git clone https://github.com/PascalSun/Talk2Metadata.git
+cd Talk2Metadata
+
+# Run setup script
+setup.bat          # Basic installation
+setup.bat --mcp    # With MCP server support
+
+# Activate environment
+.venv\Scripts\activate.bat
+```
+
+The setup script automatically:
+- ✅ Checks Python version (3.11+)
+- ✅ Installs uv package manager
+- ✅ Creates virtual environment
+- ✅ Installs Talk2Metadata with dependencies
+- ✅ Creates project directories (data, logs, examples)
+- ✅ Copies configuration templates
+
+## Manual Installation
+
+If you prefer manual installation:
 
 ```bash
 # Install uv if you don't have it
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Clone repository
-git clone https://github.com/yourusername/talk2metadata.git
-cd talk2metadata
+git clone https://github.com/PascalSun/Talk2Metadata.git
+cd Talk2Metadata
+
+# Create virtual environment
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate.bat
 
 # Install dependencies
 uv sync
-
-# Run CLI
-uv run talk2metadata --help
 ```
-
-### Using pip
-
-```bash
-# Install from source
-pip install -e .
-
-# Or with MCP server support
-pip install -e ".[mcp,dev]"
-```
-
-## Optional Dependencies
-
-### MCP Server Installation
-
-Includes MCP server support for AI agent integration:
-
-```bash
-uv sync --group mcp
-# or
-pip install -e ".[mcp]"
-```
-
-Features:
-- MCP server with OAuth 2.0 authentication
-- BM25 hybrid search support
-- Tools, resources, and prompts for AI agents
-
-### Development Installation
-
-Includes testing, linting, and documentation tools:
-
-```bash
-uv sync --all-extras
-# or
-pip install -e ".[dev]"
-```
-
-Tools included:
-- pytest, pytest-cov
-- black, isort, flake8
-- mkdocs, mkdocs-material
-- ipython
-
-### Agent Support (Optional)
-
-For future LLM-based query parsing:
-
-```bash
-pip install -e ".[agent]"
-```
-
-Includes:
-- OpenAI Python client
-- Anthropic Python client
 
 ## Verify Installation
 
 ```bash
 # Check CLI is available
+talk2metadata --version
+
+# Or with uv
 uv run talk2metadata --version
-
-# Run tests
-uv run pytest
-
-# Check imports
-uv run python -c "from talk2metadata import __version__; print(__version__)"
 ```
-
-## Configuration
-
-Create a `config.yml` file (optional):
-
-```bash
-cp config.example.yml config.yml
-```
-
-Edit `config.yml` to customize:
-
-- Data directories
-- Embedding model
-- FK detection thresholds
-- Retrieval settings
-- Hybrid search parameters
-
-Key configuration options:
-
-- `data.raw_dir`, `data.indexes_dir` - Data directories
-- `embedding.model_name` - Embedding model (default: `all-MiniLM-L6-v2`)
-- `schema.fk_detection.min_coverage` - FK detection threshold (default: 0.9)
-- `retrieval.hybrid.alpha` - Hybrid search weight (0=BM25, 1=semantic)
-- `retrieval.hybrid.fusion_method` - Fusion method (`rrf` or `weighted_sum`)
-
-See `config.example.yml` for all available options.
 
 ## Next Steps
 
 - [Quick Start Tutorial](quickstart.md)
-- [MCP Quick Start Guide](../mcp/quickstart.md)
