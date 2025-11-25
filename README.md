@@ -37,8 +37,8 @@ Given metadata with a star schema structure:
 **Related FK tables: `customers`, `products`**
 ```
 customers:          products:
-| id  | name     | industry    id  | name      | category |
-| --- | -------- | --------------- | --------- | -------- |  |
+| id  | name | industry    id | name | category |
+| --- | ---- | -------------- | ---- | -------- ||
 | 1   | Acme     | Healthcare  101 | Analytics | Software |
 | 2   | TechCorp | Technology  102 | Platform  | Software |
 ```
@@ -82,14 +82,17 @@ source .venv/bin/activate
 # 2. Ingest metadata (CSV or database)
 talk2metadata schema ingest csv data/raw --target orders
 
-# 3. Generate QA pairs for evaluation
-talk2metadata search prepare
+# 3. Generate QA pairs
+talk2metadata qa generate
 
-# 4. Evaluate
-talk2metadata search evaluate
+# 4. Build search index
+talk2metadata search prepare
 
 # 5. Search
 talk2metadata search "orders from healthcare customers buying software"
+
+# or Evaluate
+talk2metadata search evaluate
 
 ```
 
