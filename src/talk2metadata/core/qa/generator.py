@@ -176,6 +176,9 @@ class QAGenerator:
     ) -> Path:
         """Save QA pairs to file.
 
+        If the output file already exists, loads existing QA pairs and merges
+        them with the new ones, removing duplicates based on SQL query.
+
         Args:
             qa_pairs: List of QA pairs to save
             output_path: Optional explicit path to save QA pairs
@@ -200,20 +203,58 @@ class QAGenerator:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Compute statistics
-        total_qa_pairs = len(qa_pairs)
-        valid_qa_pairs = sum(1 for qa in qa_pairs if qa.is_valid)
+        # Check if file exists and load existing QA pairs
+        existing_qa_pairs = []
+        if output_path.exists():
+            try:
+                existing_qa_pairs = self.load(output_path)
+                logger.info(
+                    f"Found existing QA pairs file with {len(existing_qa_pairs)} pairs, merging..."
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load existing QA pairs from {output_path}: {e}. "
+                    "Will create new file."
+                )
+                existing_qa_pairs = []
+
+        # Merge existing and new QA pairs, removing duplicates based on SQL
+        if existing_qa_pairs:
+            # Create a set of existing SQL queries for deduplication
+            existing_sqls = {qa.sql for qa in existing_qa_pairs}
+
+            # Filter out new QA pairs that already exist (based on SQL)
+            new_qa_pairs = [qa for qa in qa_pairs if qa.sql not in existing_sqls]
+
+            if len(new_qa_pairs) < len(qa_pairs):
+                logger.info(
+                    f"Removed {len(qa_pairs) - len(new_qa_pairs)} duplicate QA pairs "
+                    f"(based on SQL query)"
+                )
+
+            # Combine existing and new (non-duplicate) QA pairs
+            merged_qa_pairs = existing_qa_pairs + new_qa_pairs
+            logger.info(
+                f"Merged {len(existing_qa_pairs)} existing + {len(new_qa_pairs)} new = "
+                f"{len(merged_qa_pairs)} total QA pairs"
+            )
+        else:
+            merged_qa_pairs = qa_pairs
+
+        # Compute statistics from merged QA pairs
+        total_qa_pairs = len(merged_qa_pairs)
+        valid_qa_pairs = sum(1 for qa in merged_qa_pairs if qa.is_valid)
 
         # Group by strategy
         strategy_distribution = {}
-        for qa in qa_pairs:
+        for qa in merged_qa_pairs:
             strategy_distribution[qa.strategy] = (
                 strategy_distribution.get(qa.strategy, 0) + 1
             )
 
         # Group by tier
         tier_distribution = {}
-        for qa in qa_pairs:
+        for qa in merged_qa_pairs:
             tier = qa.tier
             tier_distribution[tier] = tier_distribution.get(tier, 0) + 1
 
@@ -223,13 +264,13 @@ class QAGenerator:
             "valid_qa_pairs": valid_qa_pairs,
             "strategy_distribution": strategy_distribution,
             "tier_distribution": tier_distribution,
-            "qa_pairs": [qa.to_dict() for qa in qa_pairs],
+            "qa_pairs": [qa.to_dict() for qa in merged_qa_pairs],
         }
 
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"Saved {len(qa_pairs)} QA pairs to {output_path}")
+        logger.info(f"Saved {len(merged_qa_pairs)} QA pairs to {output_path}")
         return output_path
 
     @classmethod

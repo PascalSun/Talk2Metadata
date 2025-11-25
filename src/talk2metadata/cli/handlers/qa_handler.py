@@ -120,7 +120,10 @@ class QAHandler:
                 auto_save=auto_save,
                 run_id=run_id,
             )
-            return qa_pairs, saved_path
+            # Reload merged QA pairs from file to get the complete list
+            # (including any existing QA pairs that were merged)
+            merged_qa_pairs = QAGenerator.load(saved_path)
+            return merged_qa_pairs, saved_path
 
         return qa_pairs, None
 
