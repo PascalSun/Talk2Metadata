@@ -57,6 +57,13 @@ class Config:
                 "model": "gpt-4o-mini",
                 "temperature": 0.0,
             },
+            "evaluation": {
+                "top_k": 10,  # Number of results to retrieve per query
+                "output_format": "text",  # Display format: "text" or "json"
+                "save_format": "both",  # Save format: "json", "txt", or "both"
+                "auto_save": True,  # Auto-save results to benchmark directory
+                "evaluate_all_modes": False,  # Evaluate all enabled modes by default
+            },
             "qa_generation": {
                 "num_patterns": 15,
                 "instances_per_pattern": 5,

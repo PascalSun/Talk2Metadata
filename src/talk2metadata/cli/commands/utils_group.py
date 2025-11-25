@@ -638,7 +638,7 @@ def benchmark_cmd(
         if not schema_path or not Path(schema_path).exists():
             click.echo(
                 f"❌ Index not found at {index_dir}\n"
-                "   Please run 'talk2metadata search index' first.",
+                "   Please run 'talk2metadata search prepare' first.",
                 err=True,
             )
             raise click.Abort()

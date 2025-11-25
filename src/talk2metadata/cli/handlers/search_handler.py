@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from talk2metadata.core.modes import (
     RecordVoter,
@@ -12,7 +12,13 @@ from talk2metadata.core.modes import (
 )
 from talk2metadata.core.modes.comparison import ModeComparator
 from talk2metadata.core.modes.record_embedding.search_result import SearchResult
+from talk2metadata.core.modes.text2sql import (
+    DirectText2SQLRetriever,
+    TwoStepText2SQLRetriever,
+)
+from talk2metadata.core.schema.schema import SchemaMetadata
 from talk2metadata.utils.config import Config
+from talk2metadata.utils.csv_to_db import get_or_create_db_connection
 from talk2metadata.utils.paths import (
     find_schema_file,
     get_indexes_dir,
@@ -34,6 +40,17 @@ class SearchHandler:
         """
         self.config = config
         self.registry = get_registry()
+
+    def _get_text2sql_connection(
+        self, schema_metadata: SchemaMetadata, run_id: Optional[str]
+    ) -> str:
+        """Resolve or build a database connection for text2sql modes."""
+        ingest_config = self.config.get("ingest", {})
+        return get_or_create_db_connection(
+            ingest_config=ingest_config,
+            schema_metadata=schema_metadata,
+            run_id=run_id or self.config.get("run_id"),
+        )
 
     def load_retriever(
         self,
@@ -75,7 +92,9 @@ class SearchHandler:
             metadata_dir = get_metadata_dir(
                 run_id or self.config.get("run_id"), self.config
             )
-            schema_path = find_schema_file(metadata_dir)
+            # Get target_table from config to find correct schema file
+            target_table = self.config.get("ingest.target_table")
+            schema_path = find_schema_file(metadata_dir, target_table=target_table)
             if not schema_path or not Path(schema_path).exists():
                 raise FileNotFoundError(
                     f"Schema metadata not found for mode '{mode_name}'"
@@ -83,6 +102,9 @@ class SearchHandler:
 
         # Get mode-specific config
         mode_retriever_config = get_mode_retriever_config(mode_name)
+
+        # Load schema metadata (needed for text2sql modes)
+        schema_metadata = SchemaMetadata.load(schema_path)
 
         # Initialize retriever based on mode
         if mode_name == "record_embedding":
@@ -92,10 +114,19 @@ class SearchHandler:
                 per_table_top_k=per_table_top_k
                 or mode_retriever_config.get("per_table_top_k", 5),
             )
-        else:
-            raise NotImplementedError(
-                f"Retriever for mode '{mode_name}' not implemented"
+        elif mode_name in ("text2sql", "text2sql_two_step"):
+            connection_string = self._get_text2sql_connection(schema_metadata, run_id)
+            retriever_cls = (
+                DirectText2SQLRetriever
+                if mode_name == "text2sql"
+                else TwoStepText2SQLRetriever
             )
+            return retriever_cls(
+                schema_metadata=schema_metadata,
+                connection_string=connection_string,
+            )
+
+        raise NotImplementedError(f"Retriever for mode '{mode_name}' not implemented")
 
     def search(
         self,
@@ -105,7 +136,7 @@ class SearchHandler:
         index_dir: Optional[Path] = None,
         run_id: Optional[str] = None,
         per_table_top_k: int = 5,
-    ) -> List[SearchResult]:
+    ) -> List[Union[SearchResult, Any]]:
         """Perform search using specified mode.
 
         Args:
@@ -141,7 +172,7 @@ class SearchHandler:
         modes_to_compare: Optional[List[str]] = None,
         index_dir: Optional[Path] = None,
         run_id: Optional[str] = None,
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """Load retrievers for all modes to compare.
 
         Args:

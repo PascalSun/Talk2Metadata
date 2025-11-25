@@ -1,14 +1,25 @@
 # Talk2Metadata Configuration Example
 # Copy this file to config.yml and customize as needed
 
-# Data directories
-data:
-  raw_dir: "./data/raw"
-  processed_dir: "./data/processed"
-  indexes_dir: "./data/indexes"
-  metadata_dir: "./data/metadata"
+# Run ID for organizing multiple runs (optional)
+# If set, all data will be organized under {output_dir}/{run_id}/
+# You can use simple format: run_id: "wamex_run"
+# Or extended format with custom output directory:
+# run_id: null # Optional run ID (e.g., "v1", "experiment_1")
+# run:  # Extended format (optional)
+#   id: wamex_run  # Run ID
+#   output_dir: "./data"  # Output base directory (default: "./data")
+#   # Custom output directories (optional, defaults to {output_dir}/{run_id}/{subdir})
+#   # metadata_dir: "./custom/path/metadata"
+#   # processed_dir: "./custom/path/processed"
+#   # indexes_dir: "./custom/path/indexes"
+#   # qa_dir: "./custom/path/qa"
+#   # benchmark_dir: "./custom/path/benchmark"
+#   # db_dir: "./custom/path/db"
 
 # Schema detection settings
+# Note: If run_id is set, processed/indexes/metadata paths are automatically
+#       constructed as data/{run_id}/{subdir}
 schema:
   fk_detection:
     use_heuristics: true
@@ -53,6 +64,23 @@ ingest:
   target_table: null  # Target table name (e.g., "orders")
   data_type: null     # Source type: "csv", "database", or "db"
   source_path: null  # Path to CSV directory or database connection string
+
+# Evaluation configuration
+evaluation:
+  # Default top_k for evaluation (number of results to retrieve per query)
+  top_k: 10
+  
+  # Output format for display: "text" or "json"
+  output_format: "text"
+  
+  # Save format for results: "json", "txt", or "both"
+  save_format: "both"
+  
+  # Auto-save results to benchmark directory (set to false to disable)
+  auto_save: true
+  
+  # Evaluate all enabled modes by default (set to false to evaluate only active mode)
+  evaluate_all_modes: false
 
 # Agent configuration (optional, future feature)
 agent:

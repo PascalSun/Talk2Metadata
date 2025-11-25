@@ -125,7 +125,18 @@ class CLIDataLoader:
         """
         # Determine data directory
         if data_dir is None:
-            data_dir = Path(self.config.get("data.raw_dir", "./data/raw"))
+            # Try data.raw_dir first (for backward compatibility)
+            raw_dir = self.config.get("data.raw_dir")
+            if raw_dir:
+                data_dir = Path(raw_dir)
+            else:
+                # Fallback to ingest.source_path if data_type is csv
+                ingest_data_type = self.config.get("ingest.data_type")
+                ingest_source_path = self.config.get("ingest.source_path")
+                if ingest_data_type == "csv" and ingest_source_path:
+                    data_dir = Path(ingest_source_path)
+                else:
+                    data_dir = Path("./data/raw")  # Default fallback
 
         if not data_dir.exists():
             # Try common fallback locations
@@ -134,6 +145,12 @@ class CLIDataLoader:
                 Path("./data/raw"),
                 Path("./data/processed"),
             ]
+            # Also try ingest.source_path if it's a CSV directory
+            ingest_data_type = self.config.get("ingest.data_type")
+            ingest_source_path = self.config.get("ingest.source_path")
+            if ingest_data_type == "csv" and ingest_source_path:
+                possible_dirs.insert(0, Path(ingest_source_path))
+
             for pd_path in possible_dirs:
                 if pd_path.exists() and any(pd_path.glob("*.csv")):
                     data_dir = pd_path
@@ -141,7 +158,10 @@ class CLIDataLoader:
             else:
                 if echo:
                     click.echo(f"❌ Data directory not found: {data_dir}", err=True)
-                    click.echo("   Please set data.raw_dir in config.yml", err=True)
+                    click.echo(
+                        "   Please set 'data.raw_dir' or 'ingest.source_path' (when data_type is csv) in config.yml",
+                        err=True,
+                    )
                 raise click.Abort()
 
         if echo:

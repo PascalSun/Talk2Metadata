@@ -39,8 +39,8 @@ def cli(ctx, config, log_level):
         # Ingest CSV files
         talk2metadata schema ingest csv ./data/csv --target orders
 
-        # Build search index
-        talk2metadata search index
+        # Prepare modes (build indexes or load databases)
+        talk2metadata search prepare
 
         # Search for records
         talk2metadata search retrieve "customers in healthcare industry"
