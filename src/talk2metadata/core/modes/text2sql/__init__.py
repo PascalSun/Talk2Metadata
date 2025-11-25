@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from talk2metadata.core.modes.registry import register_mode
+from talk2metadata.core.modes.text2sql.base import Text2SQLSearchResult
+from talk2metadata.core.modes.text2sql.direct_retriever import DirectText2SQLRetriever
 from talk2metadata.core.modes.text2sql.indexer import Indexer
-from talk2metadata.core.modes.text2sql.retriever import (
-    DirectText2SQLRetriever,
-    Text2SQLSearchResult,
+from talk2metadata.core.modes.text2sql.two_step_retriever import (
     TwoStepText2SQLRetriever,
 )
 

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
+from sqlalchemy.engine import Engine
 
 from talk2metadata.agent import AgentWrapper
 from talk2metadata.core.qa.difficulty_classifier import DifficultyClassifier
@@ -24,6 +25,7 @@ from talk2metadata.core.qa.question_generator import QuestionGenerator
 from talk2metadata.core.qa.strategy_selector import StrategySelector
 from talk2metadata.core.qa.verifier import QAVerifier
 from talk2metadata.core.schema import SchemaMetadata
+from talk2metadata.utils.config import get_config
 from talk2metadata.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -42,6 +44,8 @@ class QAGenerator:
         strategy_weights: Optional[Dict[str, int]] = None,
         tier_weights: Optional[Dict[str, int]] = None,
         max_answer_records: int = 10,
+        engine: Optional[Engine] = None,
+        connection_string: Optional[str] = None,
     ):
         """Initialize QA generator.
 
@@ -55,6 +59,8 @@ class QAGenerator:
             tier_weights: Optional weights for tiers
             max_answer_records: Maximum number of answer records per question (default: 10)
                                 Questions with more records are considered too general
+            engine: Optional SQLAlchemy engine for SQL validation
+            connection_string: Optional database connection string for SQL validation
         """
         self.schema = schema
         self.tables = tables
@@ -65,12 +71,47 @@ class QAGenerator:
             agent = AgentWrapper(provider=provider, model=model)
         self.agent = agent
 
+        # Try to get database connection for SQL validation
+        if not engine and not connection_string:
+            try:
+                config = get_config()
+                ingest_config = config.get("ingest", {})
+                data_type = ingest_config.get("data_type", "csv")
+                source_path = ingest_config.get("source_path")
+
+                if data_type in ("database", "db") and source_path:
+                    connection_string = source_path
+                    logger.info(
+                        "Using database connection from config for SQL validation"
+                    )
+                elif data_type == "csv":
+                    # Try to get SQLite database created from CSV
+                    from talk2metadata.utils.csv_to_db import (
+                        get_or_create_db_connection,
+                    )
+
+                    try:
+                        connection_string = get_or_create_db_connection(
+                            ingest_config, schema
+                        )
+                        logger.info("Using SQLite database from CSV for SQL validation")
+                    except Exception as e:
+                        logger.debug(
+                            f"Could not create database for SQL validation: {e}"
+                        )
+            except Exception as e:
+                logger.debug(
+                    f"Could not get database connection for SQL validation: {e}"
+                )
+
         # Initialize components
         self.classifier = DifficultyClassifier()
         self.strategy_selector = StrategySelector(
             strategy_weights=strategy_weights, tier_weights=tier_weights
         )
-        self.query_builder = QueryBuilder(schema, tables)
+        self.query_builder = QueryBuilder(
+            schema, tables, engine=engine, connection_string=connection_string
+        )
         self.question_generator = QuestionGenerator(agent, schema)
         self.verifier = QAVerifier(agent, max_answer_records=max_answer_records)
 
@@ -128,6 +169,11 @@ class QAGenerator:
             try:
                 question = self.question_generator.generate(query_spec)
 
+                # Validate SQL execution
+                sql_valid, sql_error = self.query_builder.validate_sql_execution(
+                    query_spec.sql
+                )
+
                 # Create QAPair
                 qa_pair = QAPair(
                     question=question,
@@ -137,6 +183,8 @@ class QAGenerator:
                     difficulty_score=self.classifier.get_score(query_spec.strategy),
                     involved_tables=query_spec.involved_tables,
                     involved_columns=query_spec.involved_columns,
+                    sql_valid=sql_valid,
+                    sql_validation_error=sql_error,
                     metadata={
                         "target_table": self.target_table,
                     },
@@ -152,6 +200,16 @@ class QAGenerator:
                 continue
 
         logger.info(f"Successfully generated {len(qa_pairs)} QA pairs")
+
+        # Log SQL validation results
+        sql_valid_count = sum(1 for qa in qa_pairs if qa.sql_valid)
+        sql_invalid_count = sum(1 for qa in qa_pairs if qa.sql_valid is False)
+        if sql_invalid_count > 0:
+            logger.warning(
+                f"SQL validation: {sql_valid_count} valid, {sql_invalid_count} invalid"
+            )
+        else:
+            logger.info(f"SQL validation: {sql_valid_count}/{len(qa_pairs)} valid")
 
         # Step 4: Validate QA pairs
         if validate:
@@ -302,6 +360,8 @@ class QAGenerator:
         strategy_weights: Optional[Dict[str, int]] = None,
         tier_weights: Optional[Dict[str, int]] = None,
         max_answer_records: int = 10,
+        engine: Optional[Engine] = None,
+        connection_string: Optional[str] = None,
     ) -> QAGenerator:
         """Create QAGenerator from schema file.
 
@@ -314,6 +374,8 @@ class QAGenerator:
             strategy_weights: Optional weights for specific strategies
             tier_weights: Optional weights for tiers
             max_answer_records: Maximum number of answer records per question (default: 10)
+            engine: Optional SQLAlchemy engine for SQL validation
+            connection_string: Optional database connection string for SQL validation
 
         Returns:
             QAGenerator instance
@@ -328,4 +390,6 @@ class QAGenerator:
             strategy_weights=strategy_weights,
             tier_weights=tier_weights,
             max_answer_records=max_answer_records,
+            engine=engine,
+            connection_string=connection_string,
         )

@@ -8,10 +8,13 @@ This module generates SQL queries by:
 """
 
 import random
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 
 from talk2metadata.core.qa.difficulty_classifier import (
     DifficultyClassifier,
@@ -62,12 +65,16 @@ class QueryBuilder:
         self,
         schema: SchemaMetadata,
         tables: Dict[str, pd.DataFrame],
+        engine: Optional[Engine] = None,
+        connection_string: Optional[str] = None,
     ):
         """Initialize query builder.
 
         Args:
             schema: Schema metadata
             tables: Dictionary mapping table names to DataFrames
+            engine: Optional SQLAlchemy engine for SQL validation
+            connection_string: Optional database connection string for SQL validation
         """
         self.schema = schema
         self.tables = tables
@@ -76,6 +83,11 @@ class QueryBuilder:
 
         # Get primary key for target table
         self.target_pk = schema.tables[self.target_table].primary_key
+
+        # Set up database engine for SQL validation
+        self.engine = engine
+        if connection_string and not engine:
+            self.engine = create_engine(connection_string)
 
     def build_query(self, strategy: str, max_attempts: int = 10) -> Optional[QuerySpec]:
         """Build a query based on the difficulty strategy.
@@ -774,3 +786,40 @@ class QueryBuilder:
             return False
 
         return True
+
+    def validate_sql_execution(self, sql_query: str) -> Tuple[bool, Optional[str]]:
+        """Validate that SQL query can be executed successfully.
+
+        Args:
+            sql_query: SQL query string to validate
+
+        Returns:
+            Tuple of (is_valid, error_message)
+            - is_valid: True if SQL executed successfully, False otherwise
+            - error_message: Error message if execution failed, None if successful
+        """
+        if not self.engine:
+            # No engine available, skip validation
+            logger.debug("No database engine available for SQL validation")
+            return True, None
+
+        try:
+            # Try to execute the query with LIMIT 0 to avoid fetching data
+            test_query = sql_query.rstrip(";")
+            if "LIMIT" not in test_query.upper():
+                test_query += " LIMIT 0"
+            else:
+                # Replace existing LIMIT with 0
+                test_query = re.sub(
+                    r"LIMIT\s+\d+", "LIMIT 0", test_query, flags=re.IGNORECASE
+                )
+
+            with self.engine.connect() as conn:
+                conn.execute(text(test_query))
+                logger.debug(f"SQL validation successful: {sql_query[:100]}...")
+                return True, None
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.debug(f"SQL validation failed: {error_msg}")
+            return False, error_msg

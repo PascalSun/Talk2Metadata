@@ -30,6 +30,10 @@ class QAPair:
     is_valid: Optional[bool] = None  # Whether this QA pair passed validation
     validation_errors: List[str] = field(default_factory=list)
 
+    # SQL validation status
+    sql_valid: Optional[bool] = None  # Whether SQL executed successfully
+    sql_validation_error: Optional[str] = None  # Error message if SQL execution failed
+
     # Additional metadata
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional metadata
 
@@ -72,6 +76,8 @@ class QAPair:
             "involved_columns": self.involved_columns,
             "is_valid": self.is_valid,
             "validation_errors": self.validation_errors,
+            "sql_valid": self.sql_valid,
+            "sql_validation_error": self.sql_validation_error,
             "metadata": self.metadata,
         }
 
@@ -95,5 +101,7 @@ class QAPair:
             involved_columns=data["involved_columns"],
             is_valid=data.get("is_valid"),
             validation_errors=data.get("validation_errors", []),
+            sql_valid=data.get("sql_valid"),
+            sql_validation_error=data.get("sql_validation_error"),
             metadata=data.get("metadata", {}),
         )

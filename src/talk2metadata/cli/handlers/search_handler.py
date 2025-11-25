@@ -124,6 +124,7 @@ class SearchHandler:
             return retriever_cls(
                 schema_metadata=schema_metadata,
                 connection_string=connection_string,
+                mode_name=mode_name,
             )
 
         raise NotImplementedError(f"Retriever for mode '{mode_name}' not implemented")

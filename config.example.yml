@@ -45,6 +45,26 @@ modes:
       per_table_top_k: 5  # Results per table before voting
       use_reranking: false  # Requires cross-encoder (optional)
 
+  # Mode: text2sql
+  text2sql:
+    retriever:
+      # Optional context to add to prompts (e.g., domain-specific examples, instructions)
+      # This will be injected into the SQL generation prompts
+      context: |
+        # Add your domain-specific context here
+        # Examples:
+        # - Domain-specific terminology
+        # - Common query patterns
+        # - Data-specific instructions
+        # - Example queries and their SQL translations
+
+  # Mode: text2sql_two_step
+  text2sql_two_step:
+    retriever:
+      # Optional context to add to prompts (e.g., domain-specific examples, instructions)
+      context: |
+        # Add your domain-specific context here
+
   # Future modes can be added here:
   # future_mode_2:
   #   indexer:

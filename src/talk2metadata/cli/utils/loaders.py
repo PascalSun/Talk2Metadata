@@ -125,18 +125,19 @@ class CLIDataLoader:
         """
         # Determine data directory
         if data_dir is None:
-            # Try data.raw_dir first (for backward compatibility)
-            raw_dir = self.config.get("data.raw_dir")
-            if raw_dir:
-                data_dir = Path(raw_dir)
+            # Priority 1: Use ingest.source_path if data_type is csv (most explicit)
+            ingest_data_type = self.config.get("ingest.data_type")
+            ingest_source_path = self.config.get("ingest.source_path")
+            if ingest_data_type == "csv" and ingest_source_path:
+                data_dir = Path(ingest_source_path)
             else:
-                # Fallback to ingest.source_path if data_type is csv
-                ingest_data_type = self.config.get("ingest.data_type")
-                ingest_source_path = self.config.get("ingest.source_path")
-                if ingest_data_type == "csv" and ingest_source_path:
-                    data_dir = Path(ingest_source_path)
+                # Priority 2: Try data.raw_dir (for backward compatibility)
+                raw_dir = self.config.get("data.raw_dir")
+                if raw_dir:
+                    data_dir = Path(raw_dir)
                 else:
-                    data_dir = Path("./data/raw")  # Default fallback
+                    # Priority 3: Default fallback
+                    data_dir = Path("./data/raw")
 
         if not data_dir.exists():
             # Try common fallback locations
@@ -173,19 +174,40 @@ class CLIDataLoader:
             tables_dict = loader.load_tables()
 
             tables = {}
+            missing_tables = []
             for table_name in schema.tables.keys():
                 if table_name in tables_dict:
                     tables[table_name] = tables_dict[table_name]
                     if echo:
                         click.echo(f"   ✓ {table_name}: {len(tables[table_name])} rows")
                 else:
+                    missing_tables.append(table_name)
                     if echo:
                         click.echo(f"   ⚠ {table_name}: not found in data directory")
 
             if not tables:
                 if echo:
                     click.echo("❌ No tables found matching schema", err=True)
+                    if missing_tables:
+                        click.echo(
+                            f"   Missing tables: {', '.join(missing_tables)}", err=True
+                        )
+                        click.echo(f"   Data directory used: {data_dir}", err=True)
+                        # Show expected directory from config
+                        expected_dir = self.config.get("ingest.source_path")
+                        if expected_dir:
+                            click.echo(
+                                f"   Expected from config: {expected_dir}", err=True
+                            )
                 raise click.Abort()
+
+            # Warn if some tables are missing but we have at least some
+            if missing_tables and echo:
+                click.echo(
+                    f"\n⚠️  Warning: {len(missing_tables)} table(s) from schema not found in {data_dir}:"
+                )
+                for table_name in missing_tables:
+                    click.echo(f"   - {table_name}")
 
             return tables
 

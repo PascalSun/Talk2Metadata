@@ -119,10 +119,23 @@ class OpenAIProvider(BaseLLMProvider):
         Returns:
             LLMResponse object
         """
+        # Check if model requires max_completion_tokens instead of max_tokens
+        # Models that require max_completion_tokens:
+        # - o1 series: o1, o1-preview, o1-mini
+        # - gpt-5 series: gpt-5.1, etc. (newer models)
+        requires_max_completion_tokens = False
+        if self.model:
+            requires_max_completion_tokens = (
+                self.model.startswith("o1")
+                or self.model.startswith("gpt-5")
+                or self.model.startswith("gpt-4.5")  # Future-proofing
+            )
+
         # Merge config defaults with call-time parameters
         default_keys = {
             "temperature",
             "max_tokens",
+            "max_completion_tokens",
             "top_p",
             "frequency_penalty",
             "presence_penalty",
@@ -138,8 +151,19 @@ class OpenAIProvider(BaseLLMProvider):
         # Call-time parameters override defaults
         if temperature is not None:
             merged_kwargs["temperature"] = temperature
+
+        # Handle max_tokens vs max_completion_tokens based on model
         if max_tokens is not None:
-            merged_kwargs["max_tokens"] = max_tokens
+            if requires_max_completion_tokens:
+                # Use max_completion_tokens for o1 models
+                merged_kwargs["max_completion_tokens"] = max_tokens
+                # Remove max_tokens if it exists to avoid conflict
+                merged_kwargs.pop("max_tokens", None)
+            else:
+                # Use max_tokens for other models
+                merged_kwargs["max_tokens"] = max_tokens
+                # Remove max_completion_tokens if it exists to avoid conflict
+                merged_kwargs.pop("max_completion_tokens", None)
 
         # Handle JSON mode
         if response_format == "json":
@@ -171,5 +195,49 @@ class OpenAIProvider(BaseLLMProvider):
             )
 
         except Exception as e:
+            error_str = str(e)
+            # Fallback: Check if error is about max_tokens not being supported
+            # This handles cases where we didn't detect the model correctly
+            if (
+                "max_tokens" in error_str
+                and "not supported" in error_str.lower()
+                and "max_completion_tokens" in error_str.lower()
+                and "max_tokens" in merged_kwargs
+                and not requires_max_completion_tokens  # Only retry if we didn't already switch
+            ):
+                # Retry with max_completion_tokens instead
+                self.logger.warning(
+                    f"Model {self.model} requires max_completion_tokens instead of max_tokens. Retrying..."
+                )
+                retry_kwargs = merged_kwargs.copy()
+                if "max_tokens" in retry_kwargs:
+                    retry_kwargs["max_completion_tokens"] = retry_kwargs.pop(
+                        "max_tokens"
+                    )
+
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model, messages=messages, **retry_kwargs
+                    )
+
+                    content = response.choices[0].message.content or ""
+                    usage = {}
+                    if response.usage:
+                        usage = {
+                            "prompt_tokens": response.usage.prompt_tokens,
+                            "completion_tokens": response.usage.completion_tokens,
+                            "total_tokens": response.usage.total_tokens,
+                        }
+
+                    return LLMResponse(
+                        content=content,
+                        model=response.model,
+                        usage=usage,
+                        metadata={"finish_reason": response.choices[0].finish_reason},
+                    )
+                except Exception as retry_error:
+                    self.logger.error(f"OpenAI API error (retry failed): {retry_error}")
+                    raise
+
             self.logger.error(f"OpenAI API error: {e}")
             raise

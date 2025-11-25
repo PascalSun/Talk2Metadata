@@ -342,22 +342,28 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
         }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
             line-height: 1.6;
+            min-height: 100vh;
         }}
         .container {{
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            padding: 40px;
         }}
         h1 {{
-            color: #333;
+            color: #2d3748;
             margin-bottom: 10px;
-            font-size: 28px;
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }}
         .meta {{
             color: #666;
@@ -371,46 +377,60 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
             margin-bottom: 40px;
         }}
         .summary-card {{
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 6px;
-            border-left: 4px solid #007bff;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            padding: 24px;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+        .summary-card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
         }}
         .summary-card h3 {{
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 10px;
+            font-size: 13px;
+            color: #718096;
+            margin-bottom: 12px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
+            font-weight: 600;
         }}
         .summary-card .value {{
-            font-size: 32px;
-            font-weight: bold;
-            color: #333;
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }}
         .tabs {{
             display: flex;
-            border-bottom: 2px solid #e0e0e0;
-            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 30px;
+            gap: 4px;
         }}
         .tab {{
-            padding: 12px 24px;
+            padding: 14px 28px;
             cursor: pointer;
             border: none;
-            background: none;
-            font-size: 16px;
-            color: #666;
+            background: transparent;
+            font-size: 15px;
+            color: #718096;
             border-bottom: 3px solid transparent;
             transition: all 0.3s;
+            border-radius: 6px 6px 0 0;
+            font-weight: 500;
         }}
         .tab:hover {{
-            color: #007bff;
-            background: #f8f9fa;
+            color: #667eea;
+            background: #f7fafc;
         }}
         .tab.active {{
-            color: #007bff;
-            border-bottom-color: #007bff;
+            color: #667eea;
+            border-bottom-color: #667eea;
             font-weight: 600;
+            background: #f7fafc;
         }}
         .tab-content {{
             display: none;
@@ -423,58 +443,115 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
             border-collapse: collapse;
             margin-top: 20px;
             font-size: 14px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }}
         thead {{
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             position: sticky;
             top: 0;
+            z-index: 10;
         }}
         th {{
-            padding: 12px;
+            padding: 16px 12px;
             text-align: left;
             font-weight: 600;
-            color: #333;
-            border-bottom: 2px solid #e0e0e0;
+            color: white;
+            border-bottom: none;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
         }}
         td {{
-            padding: 12px;
-            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 12px;
+            border-bottom: 1px solid #e2e8f0;
             vertical-align: top;
         }}
+        tbody tr {{
+            transition: background-color 0.2s;
+        }}
         tbody tr:hover {{
-            background: #f8f9fa;
+            background: #f7fafc;
+        }}
+        tbody tr:last-child td {{
+            border-bottom: none;
         }}
         .status-correct {{
-            color: #28a745;
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #c6f6d5;
+            color: #22543d;
             font-weight: 600;
+            font-size: 12px;
         }}
         .status-incorrect {{
-            color: #dc3545;
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #fed7d7;
+            color: #742a2a;
             font-weight: 600;
+            font-size: 12px;
         }}
         .status-exact {{
-            color: #007bff;
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #bee3f8;
+            color: #2c5282;
             font-weight: 600;
+            font-size: 12px;
         }}
         .sql-code {{
-            font-family: 'Courier New', monospace;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
             font-size: 12px;
-            background: #f8f9fa;
-            padding: 8px;
-            border-radius: 4px;
-            max-width: 500px;
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 6px;
+            max-width: none;
+            min-width: 300px;
             overflow-x: auto;
             white-space: pre-wrap;
-            word-break: break-all;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #2d3748;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            line-height: 1.5;
+        }}
+        .sql-code::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+        .sql-code::-webkit-scrollbar-track {{
+            background: #2d3748;
+            border-radius: 4px;
+        }}
+        .sql-code::-webkit-scrollbar-thumb {{
+            background: #4a5568;
+            border-radius: 4px;
+        }}
+        .sql-code::-webkit-scrollbar-thumb:hover {{
+            background: #718096;
         }}
         .question {{
             max-width: 400px;
-            line-height: 1.5;
+            line-height: 1.6;
+            color: #2d3748;
+            font-weight: 500;
         }}
         .error {{
-            color: #dc3545;
+            color: #e53e3e;
             font-size: 12px;
             font-style: italic;
+            background: #fed7d7;
+            padding: 6px 10px;
+            border-radius: 4px;
+            display: inline-block;
         }}
         .metrics {{
             display: flex;
@@ -487,36 +564,60 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
             border-radius: 4px;
         }}
         .filter-bar {{
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 6px;
+            margin-bottom: 24px;
+            padding: 18px;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-radius: 8px;
             display: flex;
-            gap: 15px;
+            gap: 20px;
             align-items: center;
             flex-wrap: wrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }}
         .filter-bar label {{
             font-weight: 600;
-            color: #333;
+            color: #2d3748;
+            font-size: 14px;
         }}
         .filter-bar select {{
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            padding: 8px 16px;
+            border: 2px solid #cbd5e0;
+            border-radius: 6px;
             font-size: 14px;
+            background: white;
+            color: #2d3748;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        .filter-bar select:hover {{
+            border-color: #667eea;
+        }}
+        .filter-bar select:focus {{
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }}
         .badge {{
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 5px 10px;
+            border-radius: 12px;
             font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }}
         .badge-strategy {{
-            background: #e3f2fd;
-            color: #1976d2;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+            border: 1px solid #90caf9;
+        }}
+        h2 {{
+            color: #2d3748;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
         }}
     </style>
 </head>
@@ -667,16 +768,11 @@ def _generate_evaluation_html(eval_data: Dict[str, Any], output_path: Path) -> N
                 question[:150] + "..." if len(question) > 150 else question
             )
             question_display = html.escape(question_display)
+            # Display full SQL without truncation
             generated_sql_display = html.escape(
-                generated_sql[:200] if generated_sql else "N/A"
+                generated_sql if generated_sql else "N/A"
             )
-            if generated_sql and len(generated_sql) > 200:
-                generated_sql_display += "..."
-            expected_sql_display = html.escape(
-                expected_sql[:200] if expected_sql else "N/A"
-            )
-            if expected_sql and len(expected_sql) > 200:
-                expected_sql_display += "..."
+            expected_sql_display = html.escape(expected_sql if expected_sql else "N/A")
             error_display = html.escape(error_msg[:100] if error_msg else "")
 
             html_parts.append(
