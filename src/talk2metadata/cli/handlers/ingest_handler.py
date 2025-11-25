@@ -6,7 +6,7 @@ import json
 import pickle
 import re
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -24,8 +24,12 @@ from talk2metadata.utils.paths import get_metadata_dir, get_processed_dir
 class IngestHandler:
     """Handler for data ingestion operations.
 
-    Encapsulates business logic for data ingestion, schema detection,
-    and metadata management.
+    Encapsulates business logic for data ingestion commands,
+    keeping CLI commands thin and focused on user interaction.
+
+    Example:
+        >>> handler = IngestHandler(config)
+        >>> connector = handler.create_connector("csv", "./data", "orders")
     """
 
     def __init__(self, config: Config):
@@ -202,41 +206,3 @@ class IngestHandler:
             pickle.dump(tables, f)
 
         return tables_path
-
-    def ingest(
-        self,
-        source_type: str,
-        source_path: str,
-        target_table: str,
-        schema_file: Optional[str] = None,
-        output_dir: Optional[str] = None,
-        run_id: Optional[str] = None,
-    ) -> Tuple[SchemaMetadata, Dict[str, pd.DataFrame], Path, Path]:
-        """Complete ingestion workflow.
-
-        Args:
-            source_type: Type of data source
-            source_path: Path to data
-            target_table: Target table name
-            schema_file: Optional schema file
-            output_dir: Optional output directory
-            run_id: Optional run ID
-
-        Returns:
-            Tuple of (metadata, tables, metadata_path, tables_path)
-        """
-        # Create connector and load tables
-        connector = self.create_connector(source_type, source_path, target_table)
-        tables = connector.load_tables()
-
-        # Load provided schema if available
-        provided_schema = self.load_provided_schema(schema_file)
-
-        # Detect schema
-        metadata = self.detect_schema(tables, target_table, provided_schema)
-
-        # Save metadata and tables
-        metadata_path = self.save_metadata(metadata, output_dir, run_id)
-        tables_path = self.save_tables(tables, run_id)
-
-        return metadata, tables, metadata_path, tables_path

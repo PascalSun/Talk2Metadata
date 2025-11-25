@@ -18,7 +18,12 @@ from talk2metadata.utils.paths import get_indexes_dir, get_processed_dir
 class IndexHandler:
     """Handler for index building operations.
 
-    Encapsulates business logic for building and saving search indexes.
+    Encapsulates business logic for index building commands,
+    keeping CLI commands thin and focused on user interaction.
+
+    Example:
+        >>> handler = IndexHandler(config)
+        >>> tables = handler.load_tables_from_pickle()
     """
 
     def __init__(self, config: Config):
