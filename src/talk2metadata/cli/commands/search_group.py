@@ -319,45 +319,33 @@ def _display_search_results(
     "-k",
     type=int,
     default=None,
-    help="Number of results to return (default: from config or 5)",
-)
-@click.option(
-    "--index",
-    "-i",
-    "index_dir",
-    type=click.Path(exists=True),
-    help="Path to index directory (default: data/indexes)",
+    help="Number of results to return (default: from config.yml modes.{mode}.retriever.top_k)",
 )
 @click.option(
     "--format",
     "-f",
     "output_format",
     type=click.Choice(["text", "json"], case_sensitive=False),
-    default="text",
-    help="Output format",
+    default=None,
+    help="Output format (default: from config.yml search.output_format or 'text')",
 )
 @click.option(
     "--show-score",
     is_flag=True,
-    help="Show similarity scores",
-)
-@click.option(
-    "--per-table-top-k",
-    type=int,
-    default=5,
-    help="Number of results per table before voting (record_embedding mode only)",
+    default=False,
+    help="Show similarity scores (default: from config.yml search.show_score or False)",
 )
 @click.option(
     "--mode",
     type=str,
     default=None,
-    help="Search mode (default: from config or 'record_embedding')",
+    help="Search mode (default: from config.yml modes.active)",
 )
 @click.option(
     "--compare",
     is_flag=True,
-    default=False,
-    help="Compare results from all enabled modes",
+    default=None,
+    help="Compare results from all enabled modes (default: from config.yml modes.compare.enabled)",
 )
 @with_run_id
 @handle_errors
@@ -366,10 +354,8 @@ def retrieve_cmd(
     ctx,
     query,
     top_k,
-    index_dir,
     output_format,
     show_score,
-    per_table_top_k,
     mode,
     compare,
     run_id,
@@ -378,28 +364,61 @@ def retrieve_cmd(
 
     QUERY: Natural language search query
 
+    Most settings are read from config.yml:
+    - top_k: modes.{mode}.retriever.top_k
+    - per_table_top_k: modes.{mode}.retriever.per_table_top_k
+    - output_format: search.output_format (or 'text' as default)
+    - show_score: search.show_score (or False as default)
+    - mode: modes.active
+    - compare: modes.compare.enabled
+
     \b
     Examples:
-        # Simple search with active mode
+        # Simple search (uses config.yml settings)
         talk2metadata search retrieve "customers in healthcare industry"
 
-        # Search with specific mode
-        talk2metadata search retrieve "high value orders" --mode record_embedding
+        # Override top_k
+        talk2metadata search retrieve "high value orders" --top-k 10
 
-        # Compare all modes
-        talk2metadata search retrieve "recent orders" --compare
+        # Override mode
+        talk2metadata search retrieve "recent orders" --mode text2sql
 
         # JSON output
         talk2metadata search retrieve "recent orders" --format json
 
-        # Use specific run ID
-        talk2metadata search retrieve "my query" --run-id my_run
+        # Compare all modes
+        talk2metadata search retrieve "recent orders" --compare
     """
     config = get_config()
 
     # Update config with CLI options
     if run_id:
         config.set("run_id", run_id)
+
+    # Determine mode (CLI override > config > default)
+    mode_name = mode or get_active_mode() or "record_embedding"
+
+    # Get retriever config for the mode
+    from talk2metadata.core.modes import get_mode_retriever_config
+
+    mode_retriever_config = get_mode_retriever_config(mode_name)
+
+    # Read values from config (CLI override > config > default)
+    if top_k is None:
+        top_k = mode_retriever_config.get("top_k", 5)
+
+    if output_format is None:
+        output_format = config.get("search.output_format", "text")
+
+    # If show_score is False (default), try to read from config
+    # If user explicitly set --show-score, use that value
+    if not show_score:
+        show_score = config.get("search.show_score", False)
+
+    if compare is None:
+        compare = config.get("modes.compare.enabled", False)
+
+    per_table_top_k = mode_retriever_config.get("per_table_top_k", 5)
 
     # Initialize handler
     handler = SearchHandler(config)
@@ -413,7 +432,7 @@ def retrieve_cmd(
         try:
             # Load retrievers and run comparison
             retrievers = handler.load_retrievers_for_comparison(
-                index_dir=Path(index_dir) if index_dir else None,
+                index_dir=None,  # Auto-determined from run_id
                 run_id=run_id,
             )
 
@@ -429,7 +448,7 @@ def retrieve_cmd(
             comparison_result = handler.compare_modes(
                 query=query,
                 top_k=top_k,
-                index_dir=Path(index_dir) if index_dir else None,
+                index_dir=None,  # Auto-determined from run_id
                 run_id=run_id,
             )
 
@@ -447,7 +466,6 @@ def retrieve_cmd(
 
     # Single mode search
     if output_format == "text":
-        mode_name = mode or get_active_mode() or "record_embedding"
         out.section(f'🔍 Searching: "{query}" [Mode: {mode_name}]')
         out.stats({"Top-K": top_k})
 
@@ -455,14 +473,13 @@ def retrieve_cmd(
         results = handler.search(
             query=query,
             top_k=top_k,
-            mode_name=mode,
-            index_dir=Path(index_dir) if index_dir else None,
+            mode_name=mode_name,
+            index_dir=None,  # Auto-determined from run_id
             run_id=run_id,
             per_table_top_k=per_table_top_k,
         )
 
         # Display results
-        mode_name = mode or get_active_mode() or "record_embedding"
         _display_search_results(
             results, query, top_k, mode_name, output_format, show_score, per_table_top_k
         )

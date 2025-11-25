@@ -59,6 +59,11 @@ modes:
     modes: []  # List of modes to compare (empty = all enabled modes)
     # Example: ["record_embedding", "future_mode_2"]
 
+# Search configuration
+search:
+  output_format: "text"  # Output format: "text" or "json"
+  show_score: false  # Show similarity scores in results
+
 # Ingest configuration (optional, can be overridden by CLI arguments)
 ingest:
   target_table: null  # Target table name (e.g., "orders")
