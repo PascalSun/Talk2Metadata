@@ -93,6 +93,79 @@ class CLIDataLoader:
         # Load schema
         try:
             schema = SchemaMetadata.load(schema_path)
+
+            # Validate that loaded schema matches expected target_table
+            if target_table and schema.target_table != target_table:
+                # If schema_file was explicitly provided but doesn't match, try to find correct one
+                if schema_file:
+                    metadata_dir = get_metadata_dir(run_id, self.config)
+                    try:
+                        correct_schema_path = find_schema_file(
+                            metadata_dir, target_table=target_table
+                        )
+                        if (
+                            correct_schema_path.exists()
+                            and correct_schema_path != schema_path
+                        ):
+                            if echo:
+                                click.echo(
+                                    "⚠️  Schema mismatch detected!",
+                                    err=True,
+                                )
+                                click.echo(
+                                    f"   Provided: {schema_path} (target: {schema.target_table})",
+                                    err=True,
+                                )
+                                click.echo(
+                                    f"   Expected: {correct_schema_path} (target: {target_table})",
+                                    err=True,
+                                )
+                                click.echo(
+                                    f"   Auto-correcting to use: {correct_schema_path}",
+                                    err=True,
+                                )
+                            logger.warning(
+                                f"Schema target table mismatch: expected {target_table}, "
+                                f"got {schema.target_table} from {schema_path}. "
+                                f"Switching to {correct_schema_path}"
+                            )
+                            schema_path = correct_schema_path
+                            schema = SchemaMetadata.load(schema_path)
+                    except FileNotFoundError:
+                        # Correct schema not found, proceed with warning
+                        if echo:
+                            click.echo(
+                                "⚠️  Warning: Schema target table mismatch!",
+                                err=True,
+                            )
+                            click.echo(
+                                f"   Expected: {target_table}, but loaded: {schema.target_table}",
+                                err=True,
+                            )
+                            click.echo(
+                                f"   Schema file: {schema_path}",
+                                err=True,
+                            )
+                        logger.warning(
+                            f"Schema target table mismatch: expected {target_table}, "
+                            f"got {schema.target_table} from {schema_path}"
+                        )
+                else:
+                    # Schema was auto-selected but doesn't match - this shouldn't happen
+                    if echo:
+                        click.echo(
+                            "⚠️  Warning: Schema target table mismatch!",
+                            err=True,
+                        )
+                        click.echo(
+                            f"   Expected: {target_table}, but loaded: {schema.target_table}",
+                            err=True,
+                        )
+                    logger.warning(
+                        f"Schema target table mismatch: expected {target_table}, "
+                        f"got {schema.target_table} from {schema_path}"
+                    )
+
             if echo:
                 click.echo(f"✓ Loaded schema from {schema_path}")
                 click.echo(f"   Target table: {schema.target_table}")

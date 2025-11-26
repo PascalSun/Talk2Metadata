@@ -6,6 +6,7 @@ See class docstrings for detailed explanation of the embedding and voting mechan
 
 from __future__ import annotations
 
+import os
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,12 @@ from talk2metadata.core.modes.record_embedding.search_result import SearchResult
 from talk2metadata.core.schema.schema import SchemaMetadata
 from talk2metadata.utils.logging import get_logger
 from talk2metadata.utils.timing import TimingContext, timed
+
+# Disable multiprocessing on macOS to avoid segmentation fault
+# This is a known issue with sentence-transformers on macOS ARM
+if os.name == "posix" and os.uname().sysname == "Darwin":
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["OMP_NUM_THREADS"] = "1"
 
 logger = get_logger(__name__)
 
@@ -387,6 +394,36 @@ class RecordVoter:
         # Get target table records
         target_index, target_records = self.table_indices[self.target_table]
         target_records_dict = {r["row_id"]: r for r in target_records}
+
+        # If no votes were cast, fallback to direct target table search
+        if not target_vote_counts:
+            logger.warning(
+                "No votes cast in voting mechanism, falling back to direct target table search"
+            )
+            # Search target table directly and return top-k results
+            if self.target_table in all_matches:
+                target_matches = all_matches[self.target_table]
+                results = []
+                for rank, (record_idx, distance) in enumerate(
+                    target_matches[:top_k], start=1
+                ):
+                    record = target_records[record_idx]
+                    results.append(
+                        RecordVoteSearchResult(
+                            row_id=record["row_id"],
+                            table=self.target_table,
+                            data=record["data"],
+                            score=distance,
+                            rank=rank,
+                            match_count=1,  # Direct match counts as 1 vote
+                            matched_tables=[self.target_table],
+                        )
+                    )
+                return results
+            else:
+                # No matches at all, return empty list
+                logger.warning("No matches found in any table")
+                return []
 
         # Sort by vote count (descending), then by best score (ascending)
         # Rows with more votes rank higher

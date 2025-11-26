@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pickle
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -14,6 +15,12 @@ from tqdm import tqdm
 
 from talk2metadata.core.schema.schema import SchemaMetadata
 from talk2metadata.utils.logging import get_logger
+
+# Disable multiprocessing on macOS to avoid segmentation fault
+# This is a known issue with sentence-transformers on macOS ARM
+if os.name == "posix" and os.uname().sysname == "Darwin":
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["OMP_NUM_THREADS"] = "1"
 
 logger = get_logger(__name__)
 
@@ -108,7 +115,7 @@ class Indexer:
             logger.info(f"Indexing table: {table_name} ({len(df)} rows)")
 
             # Create texts for each row in this table
-            texts, records = self._create_table_texts(df, table_name)
+            texts, records = self._create_table_texts(df, table_name, schema_metadata)
 
             logger.info(f"Generated {len(texts)} texts for {table_name}")
 
@@ -127,15 +134,14 @@ class Indexer:
         return table_indices
 
     def _create_table_texts(
-        self, df: pd.DataFrame, table_name: str
+        self, df: pd.DataFrame, table_name: str, schema_metadata: SchemaMetadata
     ) -> Tuple[List[str], List[Dict]]:
         """Create text representations for each row in a table.
 
         Args:
             df: DataFrame for the table
             table_name: Name of the table
-            tables: All tables
-            schema_metadata: Schema metadata
+            schema_metadata: Schema metadata (used to get primary key)
 
         Returns:
             Tuple of (texts, record_metadata)
@@ -143,15 +149,22 @@ class Indexer:
         texts = []
         records = []
 
+        # Get primary key column name for this table
+        table_meta = schema_metadata.tables.get(table_name)
+        primary_key = table_meta.primary_key if table_meta else None
+
         for idx, row in tqdm(
             df.iterrows(), total=len(df), desc=f"Creating texts for {table_name}"
         ):
-            text = self._row_to_simple_text(row, table_name)
+            text = self._row_to_simple_text(row, table_name, primary_key)
             texts.append(text)
+
+            # Use primary key value as row_id if available, otherwise use DataFrame index
+            row_id = row.get(primary_key) if primary_key and primary_key in row else idx
 
             records.append(
                 {
-                    "row_id": idx,
+                    "row_id": row_id,
                     "table": table_name,
                     "data": row.to_dict(),
                 }
@@ -159,21 +172,42 @@ class Indexer:
 
         return texts, records
 
-    def _row_to_simple_text(self, row: pd.Series, table_name: str) -> str:
+    def _row_to_simple_text(
+        self, row: pd.Series, table_name: str, primary_key: Optional[str] = None
+    ) -> str:
         """Convert a row to simple text representation (without FK joins).
+
+        This method creates a text representation optimized for semantic search:
+        - Primary key is emphasized at the beginning
+        - Column names and values are clearly separated
+        - All non-null values are included for better context
 
         Args:
             row: Row from table
             table_name: Table name
+            primary_key: Primary key column name (optional, used for emphasis)
 
         Returns:
-            Text representation
+            Text representation optimized for embedding
         """
         parts = [f"# Record from {table_name}"]
 
+        # If primary key exists, put it first for better visibility
+        if primary_key and primary_key in row:
+            pk_value = row[primary_key]
+            if pd.notna(pk_value):
+                parts.append(f"{primary_key}: {pk_value}")
+
+        # Add all other columns
         for col, val in row.items():
+            if col == primary_key:  # Skip primary key if already added
+                continue
             if pd.notna(val):
-                parts.append(f"{col}: {val}")
+                # Convert value to string and truncate very long values
+                val_str = str(val)
+                if len(val_str) > 300:
+                    val_str = val_str[:300] + "..."
+                parts.append(f"{col}: {val_str}")
 
         return "\n".join(parts)
 
@@ -186,12 +220,15 @@ class Indexer:
         Returns:
             Numpy array of embeddings (N x D)
         """
+        # Disable multiprocessing to avoid segmentation fault on macOS ARM
+        # Set num_workers=0 to use single-threaded encoding
         embeddings = self.model.encode(
             texts,
             batch_size=self.batch_size,
             show_progress_bar=True,
             convert_to_numpy=True,
             normalize_embeddings=self.normalize,
+            device=self.device,
         )
 
         return embeddings.astype("float32")

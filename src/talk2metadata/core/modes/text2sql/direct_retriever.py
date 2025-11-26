@@ -44,88 +44,197 @@ class DirectText2SQLRetriever(BaseText2SQLRetriever):
         target_table_name = self.target_table
         id_column = self._get_target_id_column() or "id"
 
-        system_prompt = f"""You are an expert SQL query generator. Your task is to convert natural language questions into accurate, executable SQL queries.
+        system_prompt = f"""You are an expert SQL query generator. Convert natural language questions into accurate, executable SQL queries.
 
-QUERY PATTERN UNDERSTANDING:
-All questions follow the same pattern: they ask you to FIND/FILTER records from the TARGET TABLE ({target_table_name}) based on various conditions.
-- The goal is ALWAYS to return records (identified by {target_table_name}.{id_column}) from the target table
-- You may need to JOIN other tables to apply filters, but the final result must be records from {target_table_name}
-- Think of it as: "Which records in {target_table_name} match these conditions?"
+## DATABASE TYPE
+**Database: SQLite**
+- Use SQLite-compatible SQL syntax
+- SQLite LIKE operator condition all be lowercase, as we have done the proprocess with the text fields to lowercase
+- Follow SQLite syntax rules and limitations
 
-CRITICAL REQUIREMENTS:
-1. ALWAYS SELECT {target_table_name}.{id_column} (the target table's primary key) - this identifies the records
-2. ALWAYS query FROM {target_table_name} (the target table) - this is your main table
-3. Use EXACT table and column names from the schema - case sensitivity matters!
-4. Use proper table qualifiers when columns might be ambiguous: table_name.column_name
-5. Pay careful attention to text matching - use LIKE '%value%' for fuzzy matching on text fields
-6. When joining tables, use the EXACT foreign key relationships provided in the schema
-7. Use proper SQL syntax (SQLite-compatible)
-8. Limit results to {top_k} rows using LIMIT clause
+## TASK OVERVIEW
+Your goal: Find records from the TARGET TABLE ({target_table_name}) that match the question's conditions.
+- Always return records identified by {target_table_name}.{id_column} (the primary key)
+- You may JOIN other tables to apply filters, but results must be from {target_table_name}
+- Use ONLY the tables and columns provided in the schema
+- Think: "Which {target_table_name} records match these conditions?"
 
-STRING MATCHING RULES:
-- DEFAULT: Use LIKE with wildcards for text matching to handle variations: column LIKE '%value%'
-- This provides fuzzy matching that handles:
-  * Case variations (uppercase/lowercase)
-  * Spacing differences
-  * Punctuation variations
-  * Partial matches
-- Use EXACT match (=) ONLY for:
-  * Numeric comparisons (id = 123)
-  * Boolean/enum values where exact match is critical (status = 'active')
-  * When the question explicitly requires exact matching
-- For text fields (titles, names, descriptions, etc.), ALWAYS use LIKE '%value%' for better search results
-- Pay attention to sample values in the schema - they show the format, but LIKE will match variations
+## CRITICAL SQL FORMATTING RULES
 
-QUERY PATTERNS:
+### 1. Everything Must Be Lowercase
+- **ALL SQL keywords**: use 'select', 'from', 'where', 'join', 'limit' (NOT 'SELECT', 'FROM', 'WHERE')
+- **ALL table names**: use exact names from schema, but lowercase
+- **ALL column names**: use exact names from schema, but lowercase
+- **ALL string values**: convert to lowercase (e.g., 'John Smith' → 'john smith')
 
-Pattern 1 - Direct filter on target table:
+### 2. Query Structure (Always Follow This Pattern)
+```
+select {target_table_name}.{id_column}
+from {target_table_name}
+[join other_table on ...]  -- only if needed to filter
+where [conditions]
+limit {top_k}
+```
+
+## STRING MATCHING RULES (VERY IMPORTANT)
+
+### Default Rule: Use LIKE for Text Fields
+- **For ANY text field** (titles, names, descriptions, filenames, file paths, etc.), use: `column like '%value%'`
+- **Convert string values to lowercase**: 'John' → 'john', 'ASCII' → 'ascii'
+
+### When to Use LIKE (Most Cases)
+✅ Titles, names, descriptions: `name like '%john smith%'`
+✅ Filenames, file paths: `filename like '%geophysics.zip%'` (preserve dots, underscores, hyphens)
+✅ Text descriptions: `description like '%ascii.%'` (preserve punctuation if it's part of the value)
+✅ Any text field where variations might exist
+
+### When to Use = (Important Cases)
+✅ **Numeric ID fields** (columns ending with 'id' or 'ids'): `authorids = '900'`, `targetcommoditiesids = '49'`
+✅ **Exact string matches** when format is critical: `filekey = 'exact-value-with-hyphens'`
+✅ Numeric comparisons: `id = 123`, `price > 100`
+✅ When question explicitly requires exact match AND you're certain about format
+
+### String Value Processing Steps
+1. Convert to lowercase: 'John Smith' → 'john smith'
+2. **PRESERVE special characters** that are part of the value (dots, underscores, hyphens, slashes, colons, decimal points)
+3. Use LIKE: `like '%value%'` (keep the value as close to original as possible, just lowercase)
+
+### Advanced Strategy: Multiple LIKE Conditions for Complex Text
+**When uncertain about how to write a LIKE pattern**, especially for **longer strings**, you can extract key entities and use multiple LIKE conditions:
+- **For longer strings**: Extract meaningful parts and split into multiple LIKE conditions
+- Extract meaningful parts: 'Geophysics.zip' → extract 'geophysics' and 'zip'
+- Use multiple LIKE conditions: `filename like '%geophysics%' and filename like '%zip%'`
+- This approach is more robust for filenames, paths, or complex text with punctuation
+- **Recommended for longer strings**: If the string is long or contains multiple meaningful parts, prefer splitting into multiple LIKE conditions
+- Example: `where digital_files.filename like '%geophysics%' and digital_files.filename like '%zip%'`
+
+## EXAMPLES BY DIFFICULTY PATTERN
+
+### Pattern 0E/0M: Single Table Query (No JOINs)
+
+#### Example 0E-1: Simple Text Filter
 Question: "Show me records where status is 'Active'"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.status LIKE '%active%' LIMIT {top_k}
-Note: Use LIKE for text fields to handle case/spacing variations. Use = only for exact enum/boolean values.
+SQL: select {target_table_name}.{id_column} from {target_table_name} where {target_table_name}.status like '%active%' limit {top_k}
+Key points: Single table, text field → use LIKE, lowercase value
 
-Pattern 2 - Filter on target table + JOIN to filter by related table:
-Question: "Find records that have associated items with category 'Electronics'"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} JOIN items_table ON {target_table_name}.{id_column} = items_table.parent_id WHERE items_table.category LIKE '%electronics%' LIMIT {top_k}
-Note: The JOIN is used to FILTER the target table records, not to return data from the joined table. Use LIKE for text matching.
+#### Example 0E-2: ID Field Filter
+Question: "Find records with commodity ID 49"
+SQL: select {target_table_name}.{id_column} from {target_table_name} where {target_table_name}.targetcommoditiesids = '49' limit {top_k}
+Key points: ID fields (ending with 'id' or 'ids') → use =, not LIKE
 
-Pattern 3 - Multiple conditions (target table + related tables):
-Question: "Find records where status = 'Active' AND associated notes contain 'urgent'"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} JOIN notes_table ON {target_table_name}.{id_column} = notes_table.record_id WHERE {target_table_name}.status LIKE '%active%' AND notes_table.content LIKE '%urgent%' LIMIT {top_k}
-Note: Use LIKE for text fields. For enum/boolean fields, you may use = if exact match is required.
+#### Example 0M-1: Multiple Conditions on Same Table
+Question: "Find open file reports for mineral sands"
+SQL: select {target_table_name}.{id_column} from {target_table_name} where {target_table_name}.confidentiality like '%open file%' and {target_table_name}.targetcommoditiesnames like '%mineral sands%' limit {top_k}
+Key points: Multiple conditions, all use LIKE for text fields, lowercase
 
-Pattern 4 - Complex text matching (fuzzy match):
-Question: "Find records with name 'John Smith'"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.name LIKE '%john smith%' LIMIT {top_k}
-Note: Use LIKE for text fields to handle variations. LIKE '%value%' matches the value anywhere in the field, handling case and spacing differences.
+#### Example 0M-2: Text with Special Characters
+Question: "Find files with description 'ASCII.'"
+SQL: select {target_table_name}.{id_column} from {target_table_name} where {target_table_name}.description like '%ascii.%' limit {top_k}
+Key points: Preserve punctuation in LIKE pattern, lowercase
 
-Pattern 5 - Numeric comparison:
-Question: "Find records where price is greater than 100 and quantity is less than 50"
-SQL: SELECT {target_table_name}.{id_column} FROM {target_table_name} WHERE {target_table_name}.price > 100 AND {target_table_name}.quantity < 50 LIMIT {top_k}
+### Pattern 1pE/1pM: Single Path Query (1 JOIN)
 
-IMPORTANT REMINDERS:
-- The question is asking: "Which {target_table_name} records match these conditions?"
-- Always SELECT {target_table_name}.{id_column} to identify the matching records
-- Always FROM {target_table_name} (your main table)
-- JOINs are used to FILTER, not to return data from joined tables
-- Use column descriptions in the schema to understand what each column represents
-- Match text values EXACTLY as they appear in sample values (case, spacing, punctuation)
-- Return ONLY the SQL query, no explanations or markdown"""
+#### Example 1pE-1: Filter via Single Related Table
+Question: "Find records linked to digital file named 'Geophysics.zip'"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join digital_files on {target_table_name}.{id_column} = digital_files.anumber where digital_files.filename like '%geophysics.zip%' limit {top_k}
+Key points: Single JOIN, preserve dot in filename, lowercase, use LIKE
+
+#### Example 1pE-2: Multiple LIKE Conditions (Alternative Strategy)
+Question: "Find records linked to digital file named 'Geophysics.zip'"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join digital_files on {target_table_name}.{id_column} = digital_files.anumber where digital_files.filename like '%geophysics%' and digital_files.filename like '%zip%' limit {top_k}
+Key points: Extract key entities, use multiple LIKE conditions for better robustness
+
+#### Example 1pM-1: Multiple Conditions with Single JOIN
+Question: "Find open file reports linked to digital file 'Beetle_rock_wasg1_geochem20204.txt' with commodity ID 49"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join digital_files on {target_table_name}.{id_column} = digital_files.anumber where {target_table_name}.confidentiality like '%open file%' and {target_table_name}.targetcommoditiesids = '49' and digital_files.filename like '%beetle_rock_wasg1_geochem20204.txt%' limit {top_k}
+Key points: Single JOIN, multiple conditions, preserve underscores and dots, ID field uses =
+
+### Pattern 2iE/2iM: Two Table Intersection (2 JOINs)
+
+#### Example 2iE-1: Filter via Two Related Tables
+Question: "Find records with storage number 9675"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join abstracts on {target_table_name}.{id_column} = abstracts.anumber join storages on {target_table_name}.{id_column} = storages.anumber where storages.number like '%9675%' limit {top_k}
+Key points: Two JOINs, text field uses LIKE
+
+#### Example 2iM-1: Multiple Conditions with Two JOINs
+Question: "Find records with digital file 'Geophysics.zip' and description 'ASCII.' where anumber > 68707"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join abstracts on {target_table_name}.{id_column} = abstracts.anumber join digital_files on {target_table_name}.{id_column} = digital_files.anumber where digital_files.description like '%ascii.%' and digital_files.filename like '%geophysics.zip%' and digital_files.anumber > 68707 limit {top_k}
+Key points: Two JOINs, preserve punctuation and dots, numeric comparison
+
+### Pattern 3iE/3iM: Three Table Intersection (3 JOINs)
+
+#### Example 3iE-1: Filter via Three Related Tables
+Question: "Find records with airborne EM survey data where geochemistry anumber < 109343"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join documents on {target_table_name}.{id_column} = documents.anumber join survey_reports on {target_table_name}.{id_column} = survey_reports.anumber join geo_chemistry on {target_table_name}.{id_column} = geo_chemistry.anumber where survey_reports.surveytype like '%airborne em%' and geo_chemistry.anumber < 109343 limit {top_k}
+Key points: Three JOINs, text field uses LIKE, numeric comparison
+
+#### Example 3iM-1: Complex Conditions with Three JOINs
+Question: "Find records with operator 4485, historic title ID < 1198, and survey anumber < 116041"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join drilling_summaries on {target_table_name}.{id_column} = drilling_summaries.anumber join historic_titles on {target_table_name}.{id_column} = historic_titles.anumber join survey_reports on {target_table_name}.{id_column} = survey_reports.anumber where {target_table_name}.operatorids = '4485' and historic_titles.id < 1198 and survey_reports.anumber < 116041 limit {top_k}
+Key points: Three JOINs, ID field uses =, numeric comparisons
+
+### Pattern 4iE/4iM: Four Table Intersection (4 JOINs)
+
+#### Example 4iE-1: Filter via Four Related Tables
+Question: "Find open file reports with geochemistry data, digital files, abstracts, and historic titles"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join digital_files on {target_table_name}.{id_column} = digital_files.anumber join geo_chemistry on {target_table_name}.{id_column} = geo_chemistry.anumber join abstracts on {target_table_name}.{id_column} = abstracts.anumber join historic_titles on {target_table_name}.{id_column} = historic_titles.anumber where {target_table_name}.confidentiality like '%open file%' limit {top_k}
+Key points: Four JOINs, text field uses LIKE
+
+#### Example 4iM-1: Complex Multi-Table Query
+Question: "Find records with documents size '55.88 mb' and diamond drilling"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join documents on {target_table_name}.{id_column} = documents.anumber join abstracts on {target_table_name}.{id_column} = abstracts.anumber join drilling_summaries on {target_table_name}.{id_column} = drilling_summaries.anumber join storages on {target_table_name}.{id_column} = storages.anumber where documents.filesize like '%55.88 mb%' and drilling_summaries.holetype like '%diamond drilling%' limit {top_k}
+Key points: Four JOINs, preserve decimal point, text fields use LIKE
+
+### Special Cases
+
+#### File Path Matching
+Question: "Find file '/mnt/nas/kaia/wamex_data/reports/77937/a077937_geochem_16100162.zip'"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join documents on {target_table_name}.{id_column} = documents.anumber where documents.file_path like '%/mnt/nas/kaia/wamex_data/reports/77937/a077937_geochem_16100162.zip%' limit {top_k}
+Key points: Preserve all slashes, underscores, dots in path, lowercase
+
+#### File Key (UUID) Matching
+Question: "Find filekey 'efb1e8d6-05f4-4d3d-8759-741d52daff89-nbark57ej63wnxvtb4pe7tgrv5f7j25km9292oos'"
+SQL: select {target_table_name}.{id_column} from {target_table_name} join documents on {target_table_name}.{id_column} = documents.anumber where documents.filekey like '%efb1e8d6-05f4-4d3d-8759-741d52daff89-nbark57ej63wnxvtb4pe7tgrv5f7j25km9292oos%' limit {top_k}
+Key points: Preserve all hyphens in UUID, lowercase, use LIKE
+
+## FINAL CHECKLIST
+Before returning your SQL query, verify:
+✓ All keywords are lowercase (select, from, where, join, limit)
+✓ All table/column names are lowercase
+✓ All string values are lowercase
+✓ Text fields use LIKE '%value%' (not =)
+✓ **ID fields** (ending with 'id' or 'ids') use = 'value' (not LIKE)
+✓ Query selects {target_table_name}.{id_column}
+✓ Query has LIMIT {top_k}
+✓ **Include ALL conditions** from the question (don't miss any filters)
+✓ Return ONLY the SQL query, no explanations or markdown"""
 
         user_prompt = f"""{schema_text}
 
-Question: {query}
+## Question
+{query}
 
-Your task: Find which records in {target_table_name} match the conditions described in the question.
+## Your Task
+Generate a SQL query to find records in {target_table_name} that match the question's conditions.
+Use ONLY the tables and columns provided in the schema above.
 
-Generate a SQL query following these steps:
-1. SELECT {target_table_name}.{id_column} (to identify the matching records)
-2. FROM {target_table_name} (the target table - this is your main table)
-3. JOIN other tables ONLY if needed to apply filters (use foreign key relationships from schema)
-4. WHERE conditions: Match the question requirements exactly
-   - Use EXACT text matching (=) unless the question asks for partial matching
-   - Pay attention to column descriptions to understand what each column represents
-   - Match sample values exactly (case, spacing, punctuation)
-5. LIMIT {top_k} (to limit results)
+## Step-by-Step Instructions
+1. **SELECT**: Always select {target_table_name}.{id_column}
+2. **FROM**: Always from {target_table_name} (your main table)
+3. **JOIN**: Only if needed to filter (use foreign key relationships from schema)
+4. **WHERE**: Apply conditions from the question
+   - **Text fields** → use `like '%value%'` (lowercase, PRESERVE special characters: dots, underscores, hyphens, slashes, colons, decimal points)
+   - **For longer strings**: Consider splitting into multiple LIKE conditions (extract key entities: 'Geophysics.zip' → `like '%geophysics%' and like '%zip%'`)
+   - **ID fields** (ending with 'id' or 'ids') → use `= 'value'` (NOT LIKE)
+   - **Numeric fields** → use `=`, `>`, `<`, etc.
+   - **Include ALL conditions** from the question (don't miss any filters)
+5. **LIMIT**: Add `limit {top_k}`
+
+## Remember
+- Everything lowercase: keywords, tables, columns, string values
+- Text fields: use LIKE, lowercase values, **PRESERVE special characters**
+- ID fields: use = (not LIKE)
+- Return ONLY the SQL query (no explanations)
 
 SQL Query:"""
 
