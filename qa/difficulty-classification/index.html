@@ -1,0 +1,2453 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Question-driven multi-table record retrieval system">
+      
+      
+        <meta name="author" content="Pascal Sun">
+      
+      
+        <link rel="canonical" href="https://pascalsun.github.io/Talk2Metadata/qa/difficulty-classification/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../../retriever/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+    
+    
+      
+        <title>Difficulty Classification - Talk2Metadata</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.618322db.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#qa-difficulty-classification-system" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Talk2Metadata" class="md-header__button md-logo" aria-label="Talk2Metadata" data-md-component="logo">
+      
+  <img src="../../assets/favicon/android-chrome-512x512.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Talk2Metadata
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Difficulty Classification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PascalSun/Talk2Metadata" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Talk2Metadata
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../schema/" class="md-tabs__link">
+          
+  
+  
+  Schema Detection
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  QA Generation
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../retriever/" class="md-tabs__link">
+          
+  
+  
+  Retriever
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../mcp/quickstart/" class="md-tabs__link">
+          
+  
+  
+  MCP Server
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../utils/" class="md-tabs__link">
+          
+  
+  
+  Utilities & Tools
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Talk2Metadata" class="md-nav__button md-logo" aria-label="Talk2Metadata" data-md-component="logo">
+      
+  <img src="../../assets/favicon/android-chrome-512x512.png" alt="logo">
+
+    </a>
+    Talk2Metadata
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PascalSun/Talk2Metadata" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Talk2Metadata
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema Detection
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Schema Detection
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA Generation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    QA Generation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Difficulty Classification
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Difficulty Classification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#design-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#visual-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visual Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#format-specification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Format Specification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Format Specification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#encoding-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoding Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pattern-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pattern Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pattern-notation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern Notation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#difficulty-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Difficulty Levels
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Difficulty Levels">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#difficulty-notation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Difficulty Notation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-difficulty-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Difficulty Matrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Complete Difficulty Matrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#difficulty-codes-and-scores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Difficulty Codes and Scores
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tier-boundaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tier Boundaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#0e-score-00" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0E (Score: 0.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1pe-score-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1pE (Score: 1.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2ie-score-20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2iE (Score: 2.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retriever
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retriever
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../retriever/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    MCP Server
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp/integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp/implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities & Tools
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Utilities & Tools
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#design-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#visual-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visual Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#format-specification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Format Specification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Format Specification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#encoding-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoding Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pattern-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pattern Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pattern-notation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern Notation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#difficulty-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Difficulty Levels
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Difficulty Levels">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#difficulty-notation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Difficulty Notation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-difficulty-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Difficulty Matrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Complete Difficulty Matrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#difficulty-codes-and-scores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Difficulty Codes and Scores
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tier-boundaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tier Boundaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#0e-score-00" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0E (Score: 0.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1pe-score-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1pE (Score: 1.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2ie-score-20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2iE (Score: 2.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="qa-difficulty-classification-system">QA Difficulty Classification System</h1>
+<h2 id="overview">Overview</h2>
+<p>This document defines the difficulty classification system for question-answer (QA) pair generation in Talk2Metadata. The system is designed specifically for <strong>record localization tasks</strong>, where the goal is to locate records in a target table by filtering through related tables via JOIN operations.</p>
+<h3 id="design-goals">Design Goals</h3>
+<ol>
+<li><strong>Quantifiable</strong>: Each difficulty level corresponds to a clear numeric score</li>
+<li><strong>Intuitive</strong>: Encoding format is human-readable and self-explanatory</li>
+<li><strong>Comprehensive</strong>: Covers simple to expert-level queries</li>
+<li><strong>Theoretically Grounded</strong>: Based on Query Graph frameworks from Knowledge Graph research</li>
+<li><strong>Practical</strong>: Directly applicable to relational database schema and SQL generation</li>
+</ol>
+<h3 id="visual-overview">Visual Overview</h3>
+<p>The following interactive visualization displays all 7 core query patterns (0, 1p, 2p, 2i, 3p, 3i, 4i) with:</p>
+<ul>
+<li>Pattern codes and base scores</li>
+<li>Complexity tiers (Easy, Medium, Hard, Expert)</li>
+<li>Structural diagrams showing JOIN relationships</li>
+<li>Concentric circle visualizations for path queries</li>
+<li>Star pattern diagrams for intersection queries</li>
+</ul>
+<style>
+    .difficulty-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 30px 0;
+    }
+    .table-header {
+        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+        color: white;
+    }
+    .table-header th {
+        padding: 20px;
+        text-align: center;
+        font-size: 1.1em;
+        font-weight: 600;
+    }
+    .table-row {
+        border-bottom: 1px solid #ecf0f1;
+        transition: all 0.3s ease;
+    }
+    .table-row:hover {
+        background: #f8f9fa;
+        transform: scale(1.01);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .table-cell {
+        padding: 25px 20px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .difficulty-code {
+        font-family: 'Courier New', monospace;
+        font-size: 1.4em;
+        font-weight: bold;
+        padding: 8px 16px;
+        border-radius: 8px;
+        display: inline-block;
+    }
+    .difficulty-score {
+        font-size: 1.2em;
+        font-weight: bold;
+        padding: 6px 12px;
+        border-radius: 20px;
+        background: rgba(0,0,0,0.1);
+    }
+    .difficulty-description {
+        font-size: 1em;
+        color: #5a6c7d;
+        line-height: 1.4;
+    }
+    .tier-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 15px;
+        font-size: 0.9em;
+        font-weight: bold;
+        color: white;
+    }
+    .tier-easy { background: #27ae60; }
+    .tier-medium { background: #3498db; }
+    .tier-hard { background: #e67e22; }
+    .tier-expert { background: #8e44ad; }
+    .pattern-cell {
+        width: 220px;
+    }
+    .concentric-diagram {
+        width: 200px;
+        height: 240px;
+        margin: 0 auto;
+    }
+</style>
+
+<table class="difficulty-table">
+    <thead class="table-header">
+        <tr>
+            <th>Pattern Code</th>
+            <th>Base Score</th>
+            <th>Complexity Tier</th>
+            <th>Description</th>
+            <th>Structure Diagram</th>
+        </tr>
+    </thead>
+    <tbody id="difficulty-table-body">
+        <!-- Table rows will be generated by JavaScript -->
+    </tbody>
+</table>
+
+<script>
+    (function() {
+        const difficulties = [
+            {code: '0', score: 0.0, color: '#27ae60', description: 'Direct query - no JOINs', pattern: 'direct', tier: 'Easy', hops: 0},
+            {code: '1p', score: 1.0, color: '#3498db', description: 'Single-hop path query', pattern: 'path', tier: 'Medium', hops: 1},
+            {code: '2p', score: 2.0, color: '#e67e22', description: 'Two-hop path query', pattern: 'path', tier: 'Hard', hops: 2},
+            {code: '2i', score: 2.0, color: '#e74c3c', description: 'Two-way star query', pattern: 'star', tier: 'Hard', branches: 2},
+            {code: '3p', score: 3.0, color: '#8e44ad', description: 'Three-hop path query', pattern: 'path', tier: 'Expert', hops: 3},
+            {code: '3i', score: 3.0, color: '#9b59b6', description: 'Three-way star query', pattern: 'star', tier: 'Expert', branches: 3},
+            {code: '4i', score: 4.0, color: '#6c3483', description: 'Four-way star query', pattern: 'star', tier: 'Expert', branches: 4}
+        ];
+
+        function createConcentricDiagram(difficulty) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.setAttribute('viewBox', '0 0 220 260');
+
+            const centerX = 110; 
+            const centerY = 130;
+
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+
+            const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'radialGradient');
+            gradient.setAttribute('id', `gradient-${difficulty.code}`);
+            gradient.setAttribute('cx', '50%');
+            gradient.setAttribute('cy', '50%');
+            gradient.setAttribute('r', '50%');
+
+            const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            stop1.setAttribute('offset', '0%');
+            stop1.setAttribute('stop-color', difficulty.color);
+            stop1.setAttribute('stop-opacity', '0.15');
+
+            const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            stop2.setAttribute('offset', '100%');
+            stop2.setAttribute('stop-color', difficulty.color);
+            stop2.setAttribute('stop-opacity', '0.05');
+
+            gradient.appendChild(stop1);
+            gradient.appendChild(stop2);
+            defs.appendChild(gradient);
+
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', `arrowhead-${difficulty.code}`);
+            marker.setAttribute('markerWidth', '6');
+            marker.setAttribute('markerHeight', '4');
+            marker.setAttribute('refX', '5');
+            marker.setAttribute('refY', '2');
+            marker.setAttribute('orient', 'auto');
+            marker.setAttribute('markerUnits', 'strokeWidth');
+
+            const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            arrowPath.setAttribute('d', 'M0,0 L0,4 L6,2 z');
+            arrowPath.setAttribute('fill', difficulty.color);
+            marker.appendChild(arrowPath);
+            defs.appendChild(marker);
+
+            svg.appendChild(defs);
+
+            if (difficulty.pattern === 'direct') {
+                const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                bgCircle.setAttribute('cx', centerX);
+                bgCircle.setAttribute('cy', centerY);
+                bgCircle.setAttribute('r', '95');
+                bgCircle.setAttribute('fill', `url(#gradient-${difficulty.code})`);
+                bgCircle.setAttribute('stroke', 'none');
+                svg.appendChild(bgCircle);
+
+                const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                outerCircle.setAttribute('cx', centerX);
+                outerCircle.setAttribute('cy', centerY);
+                outerCircle.setAttribute('r', '85');
+                outerCircle.setAttribute('fill', 'none');
+                outerCircle.setAttribute('stroke', difficulty.color);
+                outerCircle.setAttribute('stroke-width', '2');
+                outerCircle.setAttribute('stroke-opacity', '0.4');
+                svg.appendChild(outerCircle);
+
+                const centerDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                centerDot.setAttribute('cx', centerX);
+                centerDot.setAttribute('cy', centerY);
+                centerDot.setAttribute('r', '8');
+                centerDot.setAttribute('fill', difficulty.color);
+                svg.appendChild(centerDot);
+
+            } else if (difficulty.pattern === 'path') {
+                const numHops = difficulty.hops;
+                const minRadius = 25;
+                const spacing = 30;
+
+                const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                bgCircle.setAttribute('cx', centerX);
+                bgCircle.setAttribute('cy', centerY);
+                bgCircle.setAttribute('r', minRadius + ((numHops + 1) * spacing));
+                bgCircle.setAttribute('fill', `url(#gradient-${difficulty.code})`);
+                bgCircle.setAttribute('stroke', 'none');
+                svg.appendChild(bgCircle);
+
+                for (let i = numHops; i >= 1; i--) {
+                    const radius = minRadius + (i * spacing);
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', centerX);
+                    circle.setAttribute('cy', centerY);
+                    circle.setAttribute('r', radius);
+                    circle.setAttribute('fill', 'none');
+                    circle.setAttribute('stroke', difficulty.color);
+                    circle.setAttribute('stroke-width', '2');
+                    circle.setAttribute('stroke-opacity', 0.3 + (0.4 * (numHops - i + 1) / numHops));
+                    svg.appendChild(circle);
+                }
+
+                for (let i = numHops; i >= 1; i--) {
+                    const radius = minRadius + (i * spacing);
+                    const angle = -Math.PI / 2;
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+
+                    if (i === 1) {
+                        const lineEndX = centerX + Math.cos(angle) * 15;
+                        const lineEndY = centerY + Math.sin(angle) * 15;
+
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', x);
+                        line.setAttribute('y1', y);
+                        line.setAttribute('x2', lineEndX);
+                        line.setAttribute('y2', lineEndY);
+                        line.setAttribute('stroke', difficulty.color);
+                        line.setAttribute('stroke-width', '2.5');
+                        line.setAttribute('stroke-linecap', 'round');
+                        line.setAttribute('marker-end', `url(#arrowhead-${difficulty.code})`);
+                        line.setAttribute('opacity', '0.8');
+                        svg.appendChild(line);
+                    } else {
+                        const nextRadius = minRadius + ((i - 1) * spacing);
+                        const nextX = centerX + Math.cos(angle) * (nextRadius + 8);
+                        const nextY = centerY + Math.sin(angle) * (nextRadius + 8);
+
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', x);
+                        line.setAttribute('y1', y);
+                        line.setAttribute('x2', nextX);
+                        line.setAttribute('y2', nextY);
+                        line.setAttribute('stroke', difficulty.color);
+                        line.setAttribute('stroke-width', '2.5');
+                        line.setAttribute('stroke-linecap', 'round');
+                        line.setAttribute('marker-end', `url(#arrowhead-${difficulty.code})`);
+                        line.setAttribute('opacity', '0.8');
+                        svg.appendChild(line);
+                    }
+
+                    const dotShadow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    dotShadow.setAttribute('cx', x + 1);
+                    dotShadow.setAttribute('cy', y + 1);
+                    dotShadow.setAttribute('r', '5');
+                    dotShadow.setAttribute('fill', 'rgba(0,0,0,0.15)');
+                    svg.appendChild(dotShadow);
+
+                    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    dot.setAttribute('cx', x);
+                    dot.setAttribute('cy', y);
+                    dot.setAttribute('r', '5');
+                    dot.setAttribute('fill', difficulty.color);
+                    dot.setAttribute('stroke', 'white');
+                    dot.setAttribute('stroke-width', '2');
+                    svg.appendChild(dot);
+                }
+
+                const centerShadow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                centerShadow.setAttribute('cx', centerX + 1);
+                centerShadow.setAttribute('cy', centerY + 1);
+                centerShadow.setAttribute('r', '8');
+                centerShadow.setAttribute('fill', 'rgba(0,0,0,0.2)');
+                svg.appendChild(centerShadow);
+
+                const centerDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                centerDot.setAttribute('cx', centerX);
+                centerDot.setAttribute('cy', centerY);
+                centerDot.setAttribute('r', '8');
+                centerDot.setAttribute('fill', difficulty.color);
+                centerDot.setAttribute('stroke', 'white');
+                centerDot.setAttribute('stroke-width', '3');
+                svg.appendChild(centerDot);
+
+            } else if (difficulty.pattern === 'star') {
+                const numBranches = difficulty.branches;
+                const radius = 85;
+
+                const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                bgCircle.setAttribute('cx', centerX);
+                bgCircle.setAttribute('cy', centerY);
+                bgCircle.setAttribute('r', radius + 10);
+                bgCircle.setAttribute('fill', `url(#gradient-${difficulty.code})`);
+                bgCircle.setAttribute('stroke', 'none');
+                svg.appendChild(bgCircle);
+
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', centerX);
+                circle.setAttribute('cy', centerY);
+                circle.setAttribute('r', radius);
+                circle.setAttribute('fill', 'none');
+                circle.setAttribute('stroke', difficulty.color);
+                circle.setAttribute('stroke-width', '2.5');
+                circle.setAttribute('stroke-opacity', '0.7');
+                svg.appendChild(circle);
+
+                const centerShadow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                centerShadow.setAttribute('cx', centerX + 1);
+                centerShadow.setAttribute('cy', centerY + 1);
+                centerShadow.setAttribute('r', '8');
+                centerShadow.setAttribute('fill', 'rgba(0,0,0,0.2)');
+                svg.appendChild(centerShadow);
+
+                const centerDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                centerDot.setAttribute('cx', centerX);
+                centerDot.setAttribute('cy', centerY);
+                centerDot.setAttribute('r', '8');
+                centerDot.setAttribute('fill', difficulty.color);
+                centerDot.setAttribute('stroke', 'white');
+                centerDot.setAttribute('stroke-width', '3');
+                svg.appendChild(centerDot);
+
+                for (let i = 0; i < numBranches; i++) {
+                    const angle = (i * 2 * Math.PI) / numBranches - Math.PI / 2;
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+
+                    const lineEndX = centerX + Math.cos(angle) * 15;
+                    const lineEndY = centerY + Math.sin(angle) * 15;
+
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x);
+                    line.setAttribute('y1', y);
+                    line.setAttribute('x2', lineEndX);
+                    line.setAttribute('y2', lineEndY);
+                    line.setAttribute('stroke', difficulty.color);
+                    line.setAttribute('stroke-width', '2.5');
+                    line.setAttribute('stroke-linecap', 'round');
+                    line.setAttribute('marker-end', `url(#arrowhead-${difficulty.code})`);
+                    line.setAttribute('opacity', '0.7');
+                    svg.appendChild(line);
+
+                    const dotShadow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    dotShadow.setAttribute('cx', x + 1);
+                    dotShadow.setAttribute('cy', y + 1);
+                    dotShadow.setAttribute('r', '5');
+                    dotShadow.setAttribute('fill', 'rgba(0,0,0,0.15)');
+                    svg.appendChild(dotShadow);
+
+                    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    dot.setAttribute('cx', x);
+                    dot.setAttribute('cy', y);
+                    dot.setAttribute('r', '5');
+                    dot.setAttribute('fill', difficulty.color);
+                    dot.setAttribute('stroke', 'white');
+                    dot.setAttribute('stroke-width', '2');
+                    svg.appendChild(dot);
+                }
+            }
+
+            return svg;
+        }
+
+        function createTableRow(difficulty) {
+            const row = document.createElement('tr');
+            row.className = 'table-row';
+
+            const tierClass = `tier-${difficulty.tier.toLowerCase()}`;
+
+            row.innerHTML = `
+                <td class="table-cell">
+                    <div class="difficulty-code" style="background-color: ${difficulty.color}20; color: ${difficulty.color}">
+                        ${difficulty.code}
+                    </div>
+                </td>
+                <td class="table-cell">
+                    <div class="difficulty-score" style="background-color: ${difficulty.color}20; color: ${difficulty.color}">
+                        ${difficulty.score}
+                    </div>
+                </td>
+                <td class="table-cell">
+                    <div class="tier-badge ${tierClass}">
+                        ${difficulty.tier}
+                    </div>
+                </td>
+                <td class="table-cell">
+                    <div class="difficulty-description">
+                        ${difficulty.description}
+                    </div>
+                </td>
+                <td class="table-cell pattern-cell">
+                    <div class="concentric-diagram"></div>
+                </td>
+            `;
+
+            const diagram = row.querySelector('.concentric-diagram');
+            diagram.appendChild(createConcentricDiagram(difficulty));
+
+            return row;
+        }
+
+        const tbody = document.getElementById('difficulty-table-body');
+        if (tbody) {
+            difficulties.forEach(difficulty => {
+                tbody.appendChild(createTableRow(difficulty));
+            });
+        }
+    })();
+</script>
+
+<h2 id="format-specification">Format Specification</h2>
+<h3 id="encoding-format">Encoding Format</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>{Pattern}{Difficulty}
+</code></pre></div>
+<ul>
+<li><strong>Pattern</strong>: Describes the JOIN structure (e.g., <code>0</code>, <code>1p</code>, <code>2i</code>)</li>
+<li><strong>Difficulty</strong>: Describes the filter complexity (e.g., <code>E</code>, <code>M</code>, <code>H</code>)</li>
+</ul>
+<h3 id="examples">Examples</h3>
+<ul>
+<li><code>0E</code>: Direct query, Easy</li>
+<li><code>1pM</code>: Single-hop path, Medium</li>
+<li><code>2iE</code>: Two-way intersection, Easy</li>
+<li><code>2iH</code>: Two-way intersection, Hard</li>
+<li><code>3iM</code>: Three-way intersection, Medium</li>
+</ul>
+<h2 id="pattern-types">Pattern Types</h2>
+<p>Pattern types describe the <strong>JOIN structure</strong> of the query, inspired by Query Graph notation from Knowledge Graph QA research.</p>
+<h3 id="pattern-notation">Pattern Notation</h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Description</th>
+<th>JOIN Type</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Direct</td>
+<td>No JOIN, query only target table</td>
+<td>None</td>
+<td>Find orders with status='completed'</td>
+</tr>
+<tr>
+<td><code>1p</code></td>
+<td>Single-hop Path</td>
+<td>1 JOIN in a chain</td>
+<td>Chain</td>
+<td>Find orders from Healthcare customers</td>
+</tr>
+<tr>
+<td><code>2p</code></td>
+<td>Two-hop Path</td>
+<td>2 JOINs in a chain</td>
+<td>Chain</td>
+<td>Find orders from US-West region customers</td>
+</tr>
+<tr>
+<td><code>3p</code></td>
+<td>Three-hop Path</td>
+<td>3 JOINs in a chain</td>
+<td>Chain</td>
+<td>Orders → Customers → Regions → Countries</td>
+</tr>
+<tr>
+<td><code>2i</code></td>
+<td>Two-way Intersection</td>
+<td>2 JOINs in a star</td>
+<td>Star</td>
+<td>Find orders: Healthcare customers × Software products</td>
+</tr>
+<tr>
+<td><code>3i</code></td>
+<td>Three-way Intersection</td>
+<td>3 JOINs in a star</td>
+<td>Star</td>
+<td>Orders: Healthcare customers × Software products × Senior sales</td>
+</tr>
+<tr>
+<td><code>4i</code></td>
+<td>Four-way Intersection</td>
+<td>4 JOINs in a star</td>
+<td>Star</td>
+<td>Orders with 4 independent filter dimensions</td>
+</tr>
+</tbody>
+</table>
+<h2 id="difficulty-levels">Difficulty Levels</h2>
+<p>Difficulty levels describe the <strong>filter complexity</strong> based on the number of distinct columns used in filter conditions.</p>
+<h3 id="difficulty-notation">Difficulty Notation</h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Column Count</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>E</code></td>
+<td>Easy</td>
+<td>1-2 columns</td>
+<td>Simple, single-condition or dual-condition filters</td>
+</tr>
+<tr>
+<td><code>M</code></td>
+<td>Medium</td>
+<td>3-5 columns</td>
+<td>Multiple filter conditions across tables</td>
+</tr>
+<tr>
+<td><code>H</code></td>
+<td>Hard</td>
+<td>6+ columns</td>
+<td>Complex multi-dimensional filtering</td>
+</tr>
+</tbody>
+</table>
+<h2 id="complete-difficulty-matrix">Complete Difficulty Matrix</h2>
+<h3 id="difficulty-codes-and-scores">Difficulty Codes and Scores</h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Pattern</th>
+<th>Difficulty</th>
+<th>Score</th>
+<th>Tier</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0E</strong></td>
+<td>Direct</td>
+<td>Easy</td>
+<td>0.0</td>
+<td>Easy</td>
+<td>Direct filter, 1-2 columns</td>
+</tr>
+<tr>
+<td><strong>0M</strong></td>
+<td>Direct</td>
+<td>Medium</td>
+<td>0.3</td>
+<td>Easy</td>
+<td>Direct filter, 3-5 columns</td>
+</tr>
+<tr>
+<td><strong>0H</strong></td>
+<td>Direct</td>
+<td>Hard</td>
+<td>0.6</td>
+<td>Easy</td>
+<td>Direct filter, 6+ columns</td>
+</tr>
+<tr>
+<td><strong>1pE</strong></td>
+<td>1-hop Path</td>
+<td>Easy</td>
+<td>1.0</td>
+<td>Medium</td>
+<td>Single JOIN, simple filter</td>
+</tr>
+<tr>
+<td><strong>1pM</strong></td>
+<td>1-hop Path</td>
+<td>Medium</td>
+<td>1.3</td>
+<td>Medium</td>
+<td>Single JOIN, medium filter</td>
+</tr>
+<tr>
+<td><strong>1pH</strong></td>
+<td>1-hop Path</td>
+<td>Hard</td>
+<td>1.6</td>
+<td>Medium</td>
+<td>Single JOIN, complex filter</td>
+</tr>
+<tr>
+<td><strong>2pE</strong></td>
+<td>2-hop Path</td>
+<td>Easy</td>
+<td>2.0</td>
+<td>Hard</td>
+<td>2-hop chain, simple</td>
+</tr>
+<tr>
+<td><strong>2pM</strong></td>
+<td>2-hop Path</td>
+<td>Medium</td>
+<td>2.3</td>
+<td>Hard</td>
+<td>2-hop chain, medium</td>
+</tr>
+<tr>
+<td><strong>2pH</strong></td>
+<td>2-hop Path</td>
+<td>Hard</td>
+<td>2.6</td>
+<td>Hard</td>
+<td>2-hop chain, complex</td>
+</tr>
+<tr>
+<td><strong>2iE</strong></td>
+<td>2-way Star</td>
+<td>Easy</td>
+<td>2.0</td>
+<td>Hard</td>
+<td>2-way intersection, simple</td>
+</tr>
+<tr>
+<td><strong>2iM</strong></td>
+<td>2-way Star</td>
+<td>Medium</td>
+<td>2.3</td>
+<td>Hard</td>
+<td>2-way intersection, medium</td>
+</tr>
+<tr>
+<td><strong>2iH</strong></td>
+<td>2-way Star</td>
+<td>Hard</td>
+<td>2.6</td>
+<td>Hard</td>
+<td>2-way intersection, complex</td>
+</tr>
+<tr>
+<td><strong>3pE</strong></td>
+<td>3-hop Path</td>
+<td>Easy</td>
+<td>3.0</td>
+<td>Expert</td>
+<td>3-hop chain, simple</td>
+</tr>
+<tr>
+<td><strong>3pM</strong></td>
+<td>3-hop Path</td>
+<td>Medium</td>
+<td>3.3</td>
+<td>Expert</td>
+<td>3-hop chain, medium</td>
+</tr>
+<tr>
+<td><strong>3pH</strong></td>
+<td>3-hop Path</td>
+<td>Hard</td>
+<td>3.6</td>
+<td>Expert</td>
+<td>3-hop chain, complex</td>
+</tr>
+<tr>
+<td><strong>3iE</strong></td>
+<td>3-way Star</td>
+<td>Easy</td>
+<td>3.0</td>
+<td>Expert</td>
+<td>3-way intersection, simple</td>
+</tr>
+<tr>
+<td><strong>3iM</strong></td>
+<td>3-way Star</td>
+<td>Medium</td>
+<td>3.3</td>
+<td>Expert</td>
+<td>3-way intersection, medium</td>
+</tr>
+<tr>
+<td><strong>3iH</strong></td>
+<td>3-way Star</td>
+<td>Hard</td>
+<td>3.6</td>
+<td>Expert</td>
+<td>3-way intersection, complex</td>
+</tr>
+<tr>
+<td><strong>4iE</strong></td>
+<td>4-way Star</td>
+<td>Easy</td>
+<td>4.0</td>
+<td>Expert</td>
+<td>4-way intersection, simple</td>
+</tr>
+<tr>
+<td><strong>4iM</strong></td>
+<td>4-way Star</td>
+<td>Medium</td>
+<td>4.3</td>
+<td>Expert</td>
+<td>4-way intersection, medium</td>
+</tr>
+<tr>
+<td><strong>4iH</strong></td>
+<td>4-way Star</td>
+<td>Hard</td>
+<td>4.6</td>
+<td>Expert</td>
+<td>4-way intersection, complex</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-boundaries">Tier Boundaries</h3>
+<ul>
+<li><strong>Easy Tier</strong>: Score 0.0 - 0.9 (0E, 0M, 0H)</li>
+<li><strong>Medium Tier</strong>: Score 1.0 - 1.9 (1pE, 1pM, 1pH)</li>
+<li><strong>Hard Tier</strong>: Score 2.0 - 2.9 (2pE, 2pM, 2pH, 2iE, 2iM, 2iH)</li>
+<li><strong>Expert Tier</strong>: Score 3.0+ (3p<em>, 3i</em>, 4i<em>, Xm</em>)</li>
+</ul>
+<h2 id="examples_1">Examples</h2>
+<h3 id="0e-score-00">0E (Score: 0.0)</h3>
+<ul>
+<li>Question: "Find all completed orders"</li>
+<li>SQL: <code>SELECT * FROM orders WHERE status = 'completed'</code></li>
+</ul>
+<h3 id="1pe-score-10">1pE (Score: 1.0)</h3>
+<ul>
+<li>Question: "Find all orders from Healthcare industry customers"</li>
+<li>SQL: <code>SELECT o.* FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.industry = 'Healthcare'</code></li>
+</ul>
+<h3 id="2ie-score-20">2iE (Score: 2.0)</h3>
+<ul>
+<li>Question: "Find orders from Healthcare customers buying Software products"</li>
+<li>SQL: <code>SELECT o.* FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id WHERE c.industry = 'Healthcare' AND p.category = 'Software'</code></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      
+    
+  </body>
+</html>
