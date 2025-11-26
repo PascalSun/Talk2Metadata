@@ -506,8 +506,9 @@ class BaseText2SQLRetriever(BaseRetriever):
         Since we preprocess all table and column names to lowercase when importing
         data, we need to ensure SQL queries also use lowercase names.
 
-        This method converts SQL identifiers (table/column names) to lowercase
-        while preserving string literals and SQL keywords.
+        This method converts SQL identifiers (table/column names) to lowercase.
+        For LIKE queries, string literals are also converted to lowercase since
+        we use fuzzy matching and database data is lowercase.
 
         Args:
             sql_query: SQL query string
@@ -515,14 +516,33 @@ class BaseText2SQLRetriever(BaseRetriever):
         Returns:
             SQL query with table and column names converted to lowercase
         """
-        # Preserve string literals (both single and double quoted) while converting
-        # identifiers to lowercase. This ensures exact string matching works correctly.
-        # SQLite uses '' to escape single quotes, and "" or \" to escape double quotes.
+        import re
 
+        # First, identify LIKE patterns and convert their string literals to lowercase
+        # Pattern: column LIKE 'pattern' or column LIKE "pattern"
+        like_pattern = r'(\w+(?:\.\w+)?)\s+LIKE\s+([\'"])([^\'"]*(?:\'\'[^\'"]*)*)\2'
+
+        def lower_like_string(match):
+            column = match.group(1)
+            quote = match.group(2)
+            pattern = match.group(3)
+            # Convert pattern to lowercase
+            pattern_lower = pattern.lower()
+            return f"{column.lower()} like {quote}{pattern_lower}{quote}"
+
+        # Replace LIKE patterns first
+        sql_query = re.sub(
+            like_pattern, lower_like_string, sql_query, flags=re.IGNORECASE
+        )
+
+        # Now handle the rest: preserve string literals for exact matches (=) but convert identifiers
         result = []
         i = 0
         in_single_quote = False
         in_double_quote = False
+        # Track if we're in a LIKE context (for the remaining string literals)
+        # Since we already processed LIKE, remaining string literals are likely for exact matches
+        # But to be safe, we'll convert all string literals to lowercase since our DB is lowercase
 
         while i < len(sql_query):
             char = sql_query[i]
@@ -546,8 +566,8 @@ class BaseText2SQLRetriever(BaseRetriever):
                 in_double_quote = not in_double_quote
                 result.append(char)
             elif in_single_quote or in_double_quote:
-                # Inside string literal - preserve case
-                result.append(char)
+                # Inside string literal - convert to lowercase since DB data is lowercase
+                result.append(char.lower())
             else:
                 # Outside string literal - convert to lowercase
                 result.append(char.lower())

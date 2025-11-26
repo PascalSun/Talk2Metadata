@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import os
 from dataclasses import dataclass, field
@@ -389,6 +390,15 @@ class EvaluationHandler:
         lines.append("=" * 100)
         lines.append(f"\nTotal QA Pairs Evaluated: {qa_count}")
         lines.append(f"Modes Evaluated: {', '.join(sorted(summaries.keys()))}")
+
+        # Add model information for agent-based modes
+        model_info = self._get_model_info(list(summaries.keys()))
+        if model_info:
+            lines.append("")
+            lines.append("Model Configuration:")
+            for mode_name, info in sorted(model_info.items()):
+                lines.append(f"  {mode_name}: {info}")
+
         lines.append("")
 
         # Overall metrics table
@@ -457,6 +467,41 @@ class EvaluationHandler:
             lines.append("")
 
         return "\n".join(lines)
+
+    def _get_model_info(self, mode_names: List[str]) -> Dict[str, str]:
+        """Get model information for agent-based modes.
+
+        Args:
+            mode_names: List of mode names that were evaluated
+
+        Returns:
+            Dict mapping mode_name -> model info string
+        """
+        model_info = {}
+
+        # Check which modes use agents (e.g., text2sql modes)
+        agent_based_modes = [name for name in mode_names if "text2sql" in name.lower()]
+
+        if agent_based_modes:
+            agent_config = self.config.get("agent", {})
+            provider = agent_config.get("provider", "unknown")
+            model = agent_config.get("model")
+
+            # Try to get model from provider-specific config if not in main config
+            if not model:
+                provider_config = agent_config.get(provider, {})
+                model = provider_config.get("model")
+
+            if model:
+                model_str = f"{provider}/{model}"
+            else:
+                model_str = f"{provider}/default"
+
+            # Add model info for all agent-based modes
+            for mode_name in agent_based_modes:
+                model_info[mode_name] = model_str
+
+        return model_info
 
     def _get_config_yml_content(self) -> Optional[str]:
         """Get the content of config.yml file.
@@ -594,4 +639,669 @@ class EvaluationHandler:
                 json.dump(results, f, indent=2)
 
         logger.info(f"Evaluation results saved to {output_path}")
+
+        # Automatically generate HTML visualization when saving JSON
+        if format == "json":
+            try:
+                html_path = output_path.with_suffix(".html")
+                self.generate_html_visualization(summaries, len(qa_pairs), html_path)
+                logger.info(f"HTML visualization generated: {html_path}")
+            except Exception as e:
+                logger.warning(f"Failed to generate HTML visualization: {e}")
+
         return output_path
+
+    def generate_html_visualization(
+        self,
+        summaries: Dict[str, ModeEvaluationSummary],
+        qa_count: int,
+        output_path: Path,
+    ) -> None:
+        """Generate HTML visualization of evaluation results.
+
+        Args:
+            summaries: Dict mapping mode_name -> ModeEvaluationSummary
+            qa_count: Total number of QA pairs evaluated
+            output_path: Path to save HTML file
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        modes_evaluated = list(summaries.keys())
+
+        # Build modes summary dict
+        modes_summary = {
+            mode_name: {
+                "total_questions": summary.total_questions,
+                "exact_matches": summary.exact_matches,
+                "correct_predictions": summary.correct_predictions,
+                "precision": summary.precision,
+                "recall": summary.recall,
+                "f1": summary.f1,
+                "accuracy": summary.accuracy,
+            }
+            for mode_name, summary in summaries.items()
+        }
+
+        # Build detailed results dict
+        detailed_results = {
+            mode_name: [
+                {
+                    "question": result.question,
+                    "strategy": result.strategy,
+                    "correct": result.correct,
+                    "is_exact_match": result.is_exact_match,
+                    "expected_row_ids": sorted(list(result.expected_row_ids)),
+                    "predicted_row_ids": sorted(list(result.predicted_row_ids)),
+                    "generated_sql": result.generated_sql or "",
+                    "expected_sql": result.expected_sql or "",
+                    "error_message": result.error_message or "",
+                }
+                for result in summary.detailed_results
+            ]
+            for mode_name, summary in summaries.items()
+        }
+
+        html_parts = []
+        html_parts.append(
+            f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Results</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f4f8;
+            padding: 30px 20px;
+            line-height: 1.6;
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 50px;
+            border: 1px solid #e2e8f0;
+        }}
+        h1 {{
+            color: #1a202c;
+            margin-bottom: 8px;
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }}
+        .meta {{
+            color: #64748b;
+            margin-bottom: 40px;
+            font-size: 15px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }}
+        .summary {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+        .summary-card {{
+            background: white;
+            padding: 28px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }}
+        .summary-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            border-color: #3b82f6;
+        }}
+        .summary-card h3 {{
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+        }}
+        .summary-card .value {{
+            font-size: 42px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 8px;
+            line-height: 1;
+        }}
+        .summary-card .value + div {{
+            color: #64748b;
+            font-size: 14px;
+            margin-top: 8px;
+        }}
+        .tabs {{
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 32px;
+            gap: 8px;
+        }}
+        .tab {{
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            color: #64748b;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            position: relative;
+        }}
+        .tab:hover {{
+            color: #3b82f6;
+            background: #f1f5f9;
+        }}
+        .tab.active {{
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+            background: #f1f5f9;
+        }}
+        .tab-content {{
+            display: none;
+        }}
+        .tab-content.active {{
+            display: block;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+            font-size: 14px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            table-layout: fixed;
+        }}
+        th:nth-child(1) {{ width: 60px; }}
+        th:nth-child(2) {{ width: 20%; }}
+        th:nth-child(3) {{ width: 100px; }}
+        th:nth-child(4) {{ width: 90px; }}
+        th:nth-child(5) {{ width: 12%; }}
+        th:nth-child(6) {{ width: 12%; }}
+        th:nth-child(7) {{ width: 22%; }}
+        th:nth-child(8) {{ width: 22%; }}
+        th:nth-child(9) {{ width: 10%; }}
+        thead {{
+            background: #1e293b;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }}
+        th {{
+            padding: 18px 16px;
+            text-align: left;
+            font-weight: 700;
+            color: white;
+            border-bottom: none;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.8px;
+        }}
+        td {{
+            padding: 18px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+            background: white;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }}
+        td:nth-child(1) {{
+            text-align: center;
+            font-weight: 600;
+            color: #64748b;
+        }}
+        td:nth-child(2) {{
+            word-break: break-word;
+        }}
+        td:nth-child(7), td:nth-child(8) {{
+            padding: 12px;
+        }}
+        tbody tr {{
+            transition: all 0.2s;
+        }}
+        tbody tr:hover {{
+            background: #f8fafc;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }}
+        tbody tr:last-child td {{
+            border-bottom: none;
+        }}
+        .status-correct {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #d1fae5;
+            color: #065f46;
+            font-weight: 700;
+            font-size: 12px;
+            border: 1px solid #6ee7b7;
+        }}
+        .status-incorrect {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-weight: 700;
+            font-size: 12px;
+            border: 1px solid #fca5a5;
+        }}
+        .status-exact {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: 700;
+            font-size: 12px;
+            border: 1px solid #93c5fd;
+        }}
+        .sql-code {{
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 14px;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+            line-height: 1.5;
+            display: block;
+            box-sizing: border-box;
+        }}
+        .sql-code::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+        .sql-code::-webkit-scrollbar-track {{
+            background: #2d3748;
+            border-radius: 4px;
+        }}
+        .sql-code::-webkit-scrollbar-thumb {{
+            background: #4a5568;
+            border-radius: 4px;
+        }}
+        .sql-code::-webkit-scrollbar-thumb:hover {{
+            background: #718096;
+        }}
+        .question {{
+            line-height: 1.7;
+            color: #1e293b;
+            font-weight: 500;
+            word-wrap: break-word;
+            white-space: normal;
+            font-size: 14px;
+        }}
+        .error {{
+            color: #991b1b;
+            font-size: 12px;
+            background: #fee2e2;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            border: 1px solid #fca5a5;
+            font-weight: 500;
+        }}
+        .ids-list {{
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            color: #475569;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }}
+        .ids-list::-webkit-scrollbar {{
+            width: 6px;
+            height: 6px;
+        }}
+        .ids-list::-webkit-scrollbar-track {{
+            background: #f1f5f9;
+            border-radius: 3px;
+        }}
+        .ids-list::-webkit-scrollbar-thumb {{
+            background: #cbd5e0;
+            border-radius: 3px;
+        }}
+        .ids-list::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
+        }}
+        .filter-bar {{
+            margin-bottom: 28px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            flex-wrap: wrap;
+            border: 1px solid #e2e8f0;
+        }}
+        .filter-bar label {{
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 14px;
+        }}
+        .filter-bar select {{
+            padding: 10px 18px;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #1e293b;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }}
+        .filter-bar select:hover {{
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }}
+        .filter-bar select:focus {{
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }}
+        .badge {{
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }}
+        .badge-strategy {{
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }}
+        h2 {{
+            color: #1e293b;
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #e2e8f0;
+            letter-spacing: -0.3px;
+        }}
+        .config-section {{
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 3px solid #e2e8f0;
+        }}
+        .config-section h2 {{
+            margin-bottom: 20px;
+        }}
+        .config-content {{
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Evaluation Results</h1>
+        <div class="meta">
+            <strong>Timestamp:</strong> {timestamp} |
+            <strong>Total QA Pairs:</strong> {qa_count} |
+            <strong>Modes:</strong> {", ".join(modes_evaluated)}
+        </div>
+"""
+        )
+
+        # Summary cards
+        html_parts.append('<div class="summary">')
+        for mode_name, mode_data in modes_summary.items():
+            accuracy = mode_data.get("accuracy", 0.0) * 100
+            f1 = mode_data.get("f1", 0.0) * 100
+            correct = mode_data.get("correct_predictions", 0)
+            total = mode_data.get("total_questions", 0)
+
+            html_parts.append(
+                f"""
+        <div class="summary-card">
+            <h3>{mode_name}</h3>
+            <div class="value">{accuracy:.1f}%</div>
+            <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                Accuracy: {correct}/{total} | F1: {f1:.2f}%
+            </div>
+        </div>
+        """
+            )
+        html_parts.append("</div>")
+
+        # Tabs for each mode
+        html_parts.append('<div class="tabs">')
+        for idx, mode_name in enumerate(modes_evaluated):
+            active = "active" if idx == 0 else ""
+            html_parts.append(
+                f'<button class="tab {active}" onclick="showTab(\'{mode_name}\')">{mode_name}</button>'
+            )
+        html_parts.append("</div>")
+
+        # Tab contents
+        for idx, mode_name in enumerate(modes_evaluated):
+            active = "active" if idx == 0 else ""
+            mode_results = detailed_results.get(mode_name, [])
+
+            html_parts.append(
+                f'<div id="tab-{mode_name}" class="tab-content {active}">'
+            )
+            html_parts.append(f"<h2>{mode_name} - Detailed Results</h2>")
+
+            # Collect unique strategies for filter
+            strategies = set()
+            for result in mode_results:
+                if result.get("strategy"):
+                    strategies.add(result["strategy"])
+
+            # Filter bar
+            html_parts.append(
+                f"""
+        <div class="filter-bar">
+            <label>Filter by Status:</label>
+            <select id="filter-status-{mode_name}" onchange="filterTable('{mode_name}')">
+                <option value="all">All</option>
+                <option value="correct">Correct</option>
+                <option value="incorrect">Incorrect</option>
+                <option value="exact">Exact Match</option>
+            </select>
+            <label>Filter by Strategy:</label>
+            <select id="filter-strategy-{mode_name}" onchange="filterTable('{mode_name}')">
+                <option value="all">All</option>
+            </select>
+        </div>
+        """
+            )
+
+            # Add strategy options
+            html_parts.append("<script>")
+            html_parts.append(
+                f"const strategies_{mode_name} = {json.dumps(sorted(list(strategies)))};"
+            )
+            html_parts.append(
+                f"""
+        (function() {{
+            const filterSelect = document.querySelector('#filter-strategy-{mode_name}');
+            if (filterSelect) {{
+                strategies_{mode_name}.forEach(s => {{
+                    const option = document.createElement('option');
+                    option.value = s;
+                    option.textContent = s;
+                    filterSelect.appendChild(option);
+                }});
+            }}
+        }})();
+        """
+            )
+            html_parts.append("</script>")
+
+            # Table
+            html_parts.append(f'<table id="table-{mode_name}">')
+            html_parts.append(
+                """
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Question</th>
+                <th>Status</th>
+                <th>Strategy</th>
+                <th>Expected IDs</th>
+                <th>Predicted IDs</th>
+                <th>Generated SQL</th>
+                <th>Expected SQL</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+        """
+            )
+
+            for result_idx, result in enumerate(mode_results, 1):
+                question = result.get("question", "")
+                correct = result.get("correct", False)
+                is_exact = result.get("is_exact_match", False)
+                strategy = result.get("strategy", "N/A")
+                expected_ids = result.get("expected_row_ids", [])
+                predicted_ids = result.get("predicted_row_ids", [])
+                generated_sql = result.get("generated_sql", "")
+                expected_sql = result.get("expected_sql", "")
+                error_msg = result.get("error_message", "")
+
+                # Status class
+                if is_exact:
+                    status_class = "status-exact"
+                    status_text = "✓ Exact"
+                elif correct:
+                    status_class = "status-correct"
+                    status_text = "✓ Correct"
+                else:
+                    status_class = "status-incorrect"
+                    status_text = "✗ Incorrect"
+
+                # Escape HTML
+                question_display = html.escape(question)
+                generated_sql_display = html.escape(
+                    generated_sql if generated_sql else "N/A"
+                )
+                expected_sql_display = html.escape(
+                    expected_sql if expected_sql else "N/A"
+                )
+                error_display = html.escape(error_msg if error_msg else "")
+
+                html_parts.append(
+                    f"""
+            <tr data-status="{'correct' if correct else 'incorrect'}" data-exact="{'exact' if is_exact else 'no'}" data-strategy="{html.escape(str(strategy))}">
+                <td>{result_idx}</td>
+                <td class="question">{question_display}</td>
+                <td><span class="{status_class}">{status_text}</span></td>
+                <td><span class="badge badge-strategy">{html.escape(str(strategy))}</span></td>
+                <td><div class="ids-list">{len(expected_ids)} IDs: {html.escape(str(expected_ids))}</div></td>
+                <td><div class="ids-list">{len(predicted_ids)} IDs: {html.escape(str(predicted_ids))}</div></td>
+                <td><div class="sql-code">{generated_sql_display}</div></td>
+                <td><div class="sql-code">{expected_sql_display}</div></td>
+                <td class="error">{error_display}</td>
+            </tr>
+            """
+                )
+
+            html_parts.append("</tbody></table>")
+            html_parts.append("</div>")
+
+        # Add config.yml content
+        config_content = self._get_config_yml_content()
+        if config_content:
+            html_parts.append('<div class="config-section">')
+            html_parts.append("<h2>Configuration (config.yml)</h2>")
+            html_parts.append(
+                f'<div class="config-content">{html.escape(config_content)}</div>'
+            )
+            html_parts.append("</div>")
+
+        # JavaScript for tabs and filtering
+        html_parts.append(
+            """
+    <script>
+        function showTab(modeName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Show selected tab
+            event.target.classList.add('active');
+            document.getElementById('tab-' + modeName).classList.add('active');
+        }
+
+        function filterTable(modeName) {
+            const statusFilter = document.getElementById('filter-status-' + modeName).value;
+            const strategyFilter = document.getElementById('filter-strategy-' + modeName).value;
+            const table = document.getElementById('table-' + modeName);
+            const rows = table.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                const status = row.dataset.status;
+                const exact = row.dataset.exact;
+                const strategy = row.dataset.strategy;
+
+                let show = true;
+
+                if (statusFilter === 'correct' && status !== 'correct') show = false;
+                if (statusFilter === 'incorrect' && status !== 'incorrect') show = false;
+                if (statusFilter === 'exact' && exact !== 'exact') show = false;
+                if (strategyFilter !== 'all' && strategy !== strategyFilter) show = false;
+
+                row.style.display = show ? '' : 'none';
+            });
+        }
+    </script>
+    </body>
+    </html>
+    """
+        )
+
+        html_content = "".join(html_parts)
+        output_path.write_text(html_content, encoding="utf-8")

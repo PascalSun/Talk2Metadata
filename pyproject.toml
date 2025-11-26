@@ -54,6 +54,7 @@ dependencies = [
     "typing-extensions>=4.5",
     "openai>=2.8.1",
     "google-generativeai>=0.8.5",
+    "anthropic>=0.74.1",
 ]
 
 [project.urls]
